@@ -10,9 +10,11 @@ from fastapi import (
     File
 )
 
-from ..database.database import get_connection
-from ..schemas.transaction import TransactionCreate
-from ..services.data_processor import clean_transactions
+from db.database import get_db
+from models.transaction import Transaction
+from models.user import User
+from schemas.transaction import TransactionCreate
+from backend.services.data_processor import clean_transactions
 
 
 router = APIRouter(

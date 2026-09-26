@@ -1,22 +1,32 @@
-from sqlalchemy import Column, Integer, String, Float
-from backend.db.database import Base
+from datetime import date
+
+from pydantic import BaseModel, Field
 
 
-class Product(Base):
-    __tablename__ = "products"
+class TransactionCreate(BaseModel):
 
-    id = Column(Integer, primary_key=True)
-
-    product_id = Column(
-        String(50),
-        unique=True,
-        nullable=False
+    transaction_id: str = Field(
+        min_length=1,
+        max_length=100
     )
 
-    name = Column(String(200), nullable=False)
+    user_id: str = Field(
+        min_length=1,
+        max_length=50
+    )
 
-    type = Column(String(100))
+    date: date
 
-    min_score_required = Column(Float)
+    amount: float
 
-    interest_rate = Column(String(50))
+    category: str = Field(
+        min_length=1,
+        max_length=100
+    )
+
+    type: str = Field(
+        min_length=1,
+        max_length=20
+    )
+
+    payment_status: str | None = None

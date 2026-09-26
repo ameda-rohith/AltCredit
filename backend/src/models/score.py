@@ -9,7 +9,7 @@ from sqlalchemy import (
     ForeignKey
 )
 
-from backend.db.database import Base
+from db.database import Base
 
 
 class CreditScore(Base):

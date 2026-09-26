@@ -1,11 +1,22 @@
-from sqlalchemy import Column, Integer, String, Float
-from backend.db.database import Base
+from sqlalchemy import (
+    Boolean,
+    Column,
+    Integer,
+    Float,
+    String
+)
+
+from db.database import Base
 
 
 class Feature(Base):
+
     __tablename__ = "features"
 
-    id = Column(Integer, primary_key=True)
+    id = Column(
+        Integer,
+        primary_key=True
+    )
 
     user_id = Column(
         String(50),
@@ -13,20 +24,102 @@ class Feature(Base):
         index=True
     )
 
-    employment_months = Column(Integer)
-    digital_payment_rate = Column(Float)
+    employment_months = Column(
+        Integer,
+        default=0
+    )
 
-    spend_income_ratio = Column(Float)
-    essential_ratio = Column(Float)
-    cashflow_volatility = Column(Float)
-    savings_days = Column(Float)
+    housing_status = Column(
+        String(50),
+        default="none"
+    )
 
-    on_time_payment_rate = Column(Float)
-    debt_to_income = Column(Float)
-    credit_utilization = Column(Float)
+    rent_payment_months = Column(
+        Integer,
+        default=0
+    )
 
-    days_late = Column(Integer, default=0)
-    multiple_misses = Column(Integer, default=0)
+    digital_payment_rate = Column(
+        Float,
+        default=0.0
+    )
 
-    qualifying_habits = Column(Integer, default=0)
-    risk_flags = Column(Integer, default=0)
+    education_level = Column(
+        String(100),
+        default=""
+    )
+
+    monthly_income = Column(
+        Float,
+        default=0.0
+    )
+
+    monthly_spend = Column(
+        Float,
+        default=0.0
+    )
+
+    spend_income_ratio = Column(
+        Float,
+        default=1.0
+    )
+
+    essential_ratio = Column(
+        Float,
+        default=0.0
+    )
+
+    cashflow_volatility = Column(
+        Float,
+        default=0.0
+    )
+
+    savings_days = Column(
+        Float,
+        default=0.0
+    )
+
+    on_time_payment_rate = Column(
+        Float,
+        default=0.0
+    )
+
+    debt_to_income = Column(
+        Float,
+        default=1.0
+    )
+
+    credit_utilization = Column(
+        Float,
+        default=0.0
+    )
+
+    has_credit_line = Column(
+        Boolean,
+        default=False
+    )
+
+    delinq_30plus = Column(
+        Integer,
+        default=0
+    )
+
+    delinq_60plus = Column(
+        Integer,
+        default=0
+    )
+
+    delinq_90plus = Column(
+        Integer,
+        default=0
+    )
+
+    qualifying_habits = Column(
+        Integer,
+        default=0
+    )
+
+    risk_flags = Column(
+        Integer,
+        default=0
+    )

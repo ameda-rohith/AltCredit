@@ -1,4 +1,9 @@
-def spend_income_score(ratio: float) -> int:
+"""Spending-behaviour scoring rules from the AltCredit use-case."""
+
+
+def spend_income_score(
+    ratio: float
+) -> int:
 
     if ratio <= 0.30:
         return 120
@@ -12,7 +17,9 @@ def spend_income_score(ratio: float) -> int:
     return 0
 
 
-def expense_diversity_score(ratio: float) -> int:
+def expense_diversity_score(
+    ratio: float
+) -> int:
 
     if ratio >= 0.70:
         return 80
@@ -26,7 +33,9 @@ def expense_diversity_score(ratio: float) -> int:
     return 0
 
 
-def cashflow_volatility_score(volatility: float) -> int:
+def cashflow_volatility_score(
+    volatility: float
+) -> int:
 
     if volatility <= 0.05:
         return 70
@@ -40,7 +49,9 @@ def cashflow_volatility_score(volatility: float) -> int:
     return 0
 
 
-def savings_score(days: float) -> int:
+def savings_score(
+    days: float
+) -> int:
 
     if days >= 180:
         return 80
@@ -54,26 +65,47 @@ def savings_score(days: float) -> int:
     return 0
 
 
-def calculate_spending_score(features: dict) -> dict:
+def calculate_spending_score(
+    features: dict
+) -> dict:
 
     return {
         "Spend-to-Income Ratio":
             spend_income_score(
-                features.get("spend_income_ratio", 1)
+                float(
+                    features.get(
+                        "spend_income_ratio",
+                        1.0
+                    )
+                )
             ),
 
         "Expense Diversity":
             expense_diversity_score(
-                features.get("essential_ratio", 0)
+                float(
+                    features.get(
+                        "essential_ratio",
+                        0.0
+                    )
+                )
             ),
 
         "Cash-flow Volatility":
             cashflow_volatility_score(
-                features.get("cashflow_volatility", 1)
+                float(
+                    features.get(
+                        "cashflow_volatility",
+                        1.0
+                    )
+                )
             ),
 
         "Savings / Emergency Fund":
             savings_score(
-                features.get("savings_days", 0)
-            )
+                float(
+                    features.get(
+                        "savings_days",
+                        0.0
+                    )
+                )
     }

@@ -1,33 +1,48 @@
-from backend.scoring.lifestyle import (
+"""Canonical AltCredit rule-based scoring engine."""
+
+
+from scoring.lifestyle import (
     calculate_lifestyle_score
 )
 
-from backend.scoring.spending_behavior import (
+from scoring.spending_behavior import (
     calculate_spending_score
 )
 
-from backend.scoring.repayment_discipline import (
+from scoring.Repayment_Discipline import (
     calculate_repayment_score
 )
 
-from backend.scoring.bonus_penalty import (
+from scoring.bonus_and_penalty import (
     calculate_bonus,
     calculate_penalty
 )
 
 
-def calculate_score(features: dict) -> dict:
+RAW_SCORE_MAX = 1270
+FINAL_SCORE_MAX = 1000
 
-    lifestyle_factors = calculate_lifestyle_score(
-        features
+
+def calculate_score(
+    features: dict
+) -> dict:
+
+    lifestyle_factors = (
+        calculate_lifestyle_score(
+            features
+        )
     )
 
-    spending_factors = calculate_spending_score(
-        features
+    spending_factors = (
+        calculate_spending_score(
+            features
+        )
     )
 
-    repayment_factors = calculate_repayment_score(
-        features
+    repayment_factors = (
+        calculate_repayment_score(
+            features
+        )
     )
 
     lifestyle_score = sum(
@@ -43,11 +58,17 @@ def calculate_score(features: dict) -> dict:
     )
 
     bonus = calculate_bonus(
-        features.get("qualifying_habits", 0)
+        features.get(
+            "qualifying_habits",
+            0
+        )
     )
 
     penalty = calculate_penalty(
-        features.get("risk_flags", 0)
+        features.get(
+            "risk_flags",
+            0
+        )
     )
 
     raw_score = (
@@ -58,22 +79,49 @@ def calculate_score(features: dict) -> dict:
         - penalty
     )
 
-    # The table's individual maxima total 1270,
-    # while the specification defines the unified score
-    # as 0–1000. Normalize the rule-table score.
+    # The individual maxima in the PDF total 1270,
+    # while the unified score is defined as 0-1000.
     final_score = round(
-        max(0, min(1000, raw_score * 1000 / 1270))
+        max(
+            0,
+            min(
+                FINAL_SCORE_MAX,
+                raw_score
+                * FINAL_SCORE_MAX
+                / RAW_SCORE_MAX
+            )
+        )
     )
 
     return {
-        "lifestyle_score": lifestyle_score,
-        "spending_score": spending_score,
-        "repayment_score": repayment_score,
-        "bonus_points": bonus,
-        "penalty_points": penalty,
-        "raw_score": raw_score,
-        "final_score": final_score,
-        "lifestyle_factors": lifestyle_factors,
-        "spending_factors": spending_factors,
-        "repayment_factors": repayment_factors
+
+        "final_score":
+            final_score,
+
+        "raw_score":
+            raw_score,
+
+        "lifestyle_score":
+            lifestyle_score,
+
+        "spending_score":
+            spending_score,
+
+        "repayment_score":
+            repayment_score,
+
+        "bonus_points":
+            bonus,
+
+        "penalty_points":
+            penalty,
+
+        "lifestyle_factors":
+            lifestyle_factors,
+
+        "spending_factors":
+            spending_factors,
+
+        "repayment_factors":
+            repayment_factors
     }

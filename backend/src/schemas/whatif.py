@@ -8,10 +8,7 @@ class WhatIfChanges(BaseModel):
         ge=0
     )
 
-    additional_monthly_spending: float = Field(
-        default=0,
-        ge=0
-    )
+    additional_monthly_spending: float = 0
 
     payment_rate_change: float = Field(
         default=0,
@@ -59,7 +56,9 @@ class WhatIfRequest(BaseModel):
 
     current_score: int | None = None
 
-    changes: WhatIfChanges = WhatIfChanges()
+    changes: WhatIfChanges = Field(
+        default_factory=WhatIfChanges
+    )
 
 
 class WhatIfResponse(BaseModel):

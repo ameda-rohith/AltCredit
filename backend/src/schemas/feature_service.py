@@ -66,9 +66,10 @@ class FeatureInput(BaseModel):
     )
 
     credit_utilization: float = Field(
-        default=0.0,
-        ge=0
-    )
+    default=0.0,
+    ge=0,
+    le=1
+)
 
     has_credit_line: bool = False
 

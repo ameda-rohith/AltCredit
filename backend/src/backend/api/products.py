@@ -1,7 +1,18 @@
-from fastapi import APIRouter
+from fastapi import (
+    APIRouter,
+    Depends
+)
 
-from ..database.database import get_connection
-from ..schemas.product import ProductCreate
+from sqlalchemy.orm import Session
+
+from db.database import get_db
+
+from models.product import Product
+
+from schemas.product import (
+    ProductCreate,
+    ProductResponse
+)
 
 
 router = APIRouter(
@@ -10,49 +21,61 @@ router = APIRouter(
 )
 
 
-@router.post("/")
-def create_product(product: ProductCreate):
+@router.post(
+    "/",
+    response_model=ProductResponse
+)
+def create_product(
+    product: ProductCreate,
+    db: Session = Depends(get_db)
+):
 
-    connection = get_connection()
-
-    connection.execute("""
-        INSERT OR REPLACE INTO products (
-            product_id,
-            name,
-            type,
-            min_score_required,
-            interest_rate
+    existing = (
+        db.query(Product)
+        .filter(
+            Product.product_id
+            == product.product_id
         )
-        VALUES (?, ?, ?, ?, ?)
-    """, (
-        product.product_id,
-        product.name,
-        product.type,
-        product.min_score_required,
-        product.interest_rate
-    ))
+        .first()
+    )
 
-    connection.commit()
-    connection.close()
+    if existing:
 
-    return {
-        "message": "Product created",
-        "product_id": product.product_id
-    }
+        existing.name = product.name
+        existing.type = product.type
+        existing.min_score_required = (
+            product.min_score_required
+        )
+        existing.interest_rate = (
+            product.interest_rate
+        )
+
+    else:
+
+        existing = Product(
+            **product.model_dump()
+        )
+
+        db.add(existing)
+
+    db.commit()
+
+    db.refresh(existing)
+
+    return existing
 
 
-@router.get("/")
-def get_products():
-
-    connection = get_connection()
-
-    rows = connection.execute(
-        "SELECT * FROM products"
-    ).fetchall()
-
-    connection.close()
-
-    return [
-        dict(row)
-        for row in rows
+@router.get(
+    "/",
+    response_model=list[
+        ProductResponse
     ]
+)
+def get_products(
+    db: Session = Depends(get_db)
+):
+
+    return (
+        db.query(Product)
+        .all()
+    )
