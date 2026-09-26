@@ -59,8 +59,12 @@ def load_users() -> List[Dict[str, Any]]:
         users = json.load(file)
 
     if not isinstance(users, list):
+<<<<<<< HEAD
 
         raise ValueError(
+=======
+        raise ValueError(  # noqa: TRY004
+>>>>>>> daeaf0f (merge)
             "merged_data.json must contain a list of users."
         )
 

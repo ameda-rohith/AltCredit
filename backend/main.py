@@ -4,7 +4,6 @@ from fastapi import FastAPI
 # Import ORM models so that all tables
 # are registered in Base.metadata.
 
-from models.user import User
 from models.demographic import Demographic
 from models.feature import Feature
 from models.transaction import Transaction
