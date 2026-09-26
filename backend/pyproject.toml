@@ -1,17 +1,36 @@
 [project]
-name = "backend"
-version = "0.1.0"
-description = "Add your description here"
-readme = "README.md"
-authors = [
-    { name = "0DIVYA-123", email = "nukaladivya27@gmail.com" }
-]
+name = "altcredit-backend"
+version = "1.0.0"
+description = "AltCredit Alternative Credit Scoring Backend"
 requires-python = ">=3.12"
-dependencies = []
 
-[project.scripts]
-backend = "backend:main"
+dependencies = [
+    "fastapi==0.115.6",
+    "uvicorn[standard]==0.34.0",
+    "sqlalchemy==2.0.36",
+    "pydantic==2.10.4",
+    "pydantic-settings==2.7.0",
+    "python-multipart==0.0.20",
+    "pandas==2.2.3",
+    "numpy==2.2.1",
+    "scikit-learn==1.6.0",
+    "joblib==1.4.2",
+    "reportlab==4.2.5"
+]
+
+[project.optional-dependencies]
+test = [
+    "pytest==8.3.4",
+    "httpx==0.28.1"
+]
 
 [build-system]
-requires = ["uv_build>=0.12.19,<0.13.0"]
-build-backend = "uv_build"
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["src/backend/tests"]
