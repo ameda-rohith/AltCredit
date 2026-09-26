@@ -1,6 +1,8 @@
 import json
-from typing import Dict, Any
+from typing import Any, Dict
+
 import config as c
+
 
 class AltCreditRuleEngine:
     def __init__(self, config_module=c):
