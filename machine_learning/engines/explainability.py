@@ -1,24 +1,24 @@
 """
-Explainability Engine
+Explainability / Factor Analysis Engine
 
-Uses the real users from:
+Uses:
     machine_learning/data/processed/merged_data.json
 
-Uses scoring logic from:
-    machine_learning/engines/rule_engine.py
+Scoring:
+    AltCreditRuleEngine from rule_engine.py
 
 Output:
-    machine_learning/data/processed/score_explanations.csv
+    machine_learning/data/processed/factor_analysis.csv
 
 One row = one user + one scoring factor.
 """
 
-from typing import Dict, Any, List
 from pathlib import Path
+from typing import Dict, Any, List
 import json
 import csv
 
-from rule_engine import calculate_score
+from rule_engine import AltCreditRuleEngine
 
 
 # ============================================================
@@ -30,7 +30,6 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 DATA_PATH = (
     BASE_DIR
     / "data"
-    / "processed"
     / "merged_data.json"
 )
 
@@ -38,20 +37,21 @@ OUTPUT_PATH = (
     BASE_DIR
     / "data"
     / "processed"
-    / "score_explanations.csv"
+    / "factor_analysis.csv"
 )
 
 
 # ============================================================
-# LOAD REAL USERS
+# LOAD USERS
 # ============================================================
 
-def load_users(
-    data_path: Path = DATA_PATH
-) -> List[Dict[str, Any]]:
+def load_users() -> List[Dict[str, Any]]:
+    """
+    Load the real users from merged_data.json.
+    """
 
     with open(
-        data_path,
+        DATA_PATH,
         "r",
         encoding="utf-8"
     ) as file:
@@ -59,6 +59,7 @@ def load_users(
         users = json.load(file)
 
     if not isinstance(users, list):
+
         raise ValueError(
             "merged_data.json must contain a list of users."
         )
@@ -67,236 +68,378 @@ def load_users(
 
 
 # ============================================================
-# FACTOR BREAKDOWN
+# HUMAN-READABLE FACTOR NAMES
 # ============================================================
 
-def get_factor_breakdown(
-    score_result: Dict[str, Any]
-) -> List[Dict[str, Any]]:
+FACTOR_NAMES = {
 
-    breakdown = []
+    "1.1_employment_stability":
+        "Employment Stability",
 
-    for component in score_result.get(
-        "components",
-        []
-    ):
+    "1.2_housing_status":
+        "Housing Status",
 
-        score = component.get(
-            "score",
-            0
-        )
+    "1.3_digital_footprint":
+        "Digital Payment Footprint",
 
-        max_score = component.get(
-            "max_score",
-            0
-        )
+    "1.4_education_level":
+        "Education Level",
 
-        if score > 0:
-            contribution = "positive"
+    "2.1_spend_to_income_ratio":
+        "Spend-to-Income Ratio",
 
-        elif score == 0:
-            contribution = "weak"
+    "2.2_expense_diversity":
+        "Expense Diversity",
 
-        else:
-            contribution = "negative"
+    "2.3_cashflow_volatility":
+        "Cash-flow Stability",
 
-        breakdown.append({
+    "2.4_savings_emergency_fund":
+        "Savings / Emergency Fund",
 
-            "factor":
-                component.get("factor"),
+    "3.1_ontime_payment_rate":
+        "On-time Payment Rate",
 
-            "score":
-                score,
+    "3.2_debt_to_income":
+        "Debt-to-Income Ratio",
 
-            "max_score":
-                max_score,
+    "3.3_credit_utilization":
+        "Credit Utilization",
 
-            "contribution":
-                contribution,
+    "3.4_delinquency_severity":
+        "Recent Delinquency",
 
-            "status":
-                component.get("status"),
+    "4.1_positive_habits":
+        "Positive Financial Habits",
 
-            "reason":
-                component.get("reason")
-        })
-
-    return breakdown
+    "4.2_risk_flags":
+        "Risk Flags"
+}
 
 
 # ============================================================
-# POSITIVE FACTORS
+# PILLAR MAPPING
 # ============================================================
 
-def get_positive_factors(
-    score_result: Dict[str, Any]
-) -> List[Dict[str, Any]]:
+PILLAR_NAMES = {
 
-    return [
+    "1.1_employment_stability":
+        "Lifestyle",
 
-        {
-            "factor":
-                item["factor"],
+    "1.2_housing_status":
+        "Lifestyle",
 
-            "score":
-                item["score"],
+    "1.3_digital_footprint":
+        "Lifestyle",
 
-            "reason":
-                item["reason"]
-        }
+    "1.4_education_level":
+        "Lifestyle",
 
-        for item in score_result.get(
-            "components",
-            []
+    "2.1_spend_to_income_ratio":
+        "Spending Behaviour",
+
+    "2.2_expense_diversity":
+        "Spending Behaviour",
+
+    "2.3_cashflow_volatility":
+        "Spending Behaviour",
+
+    "2.4_savings_emergency_fund":
+        "Spending Behaviour",
+
+    "3.1_ontime_payment_rate":
+        "Repayment Discipline",
+
+    "3.2_debt_to_income":
+        "Repayment Discipline",
+
+    "3.3_credit_utilization":
+        "Repayment Discipline",
+
+    "3.4_delinquency_severity":
+        "Repayment Discipline",
+
+    "4.1_positive_habits":
+        "Adjustments",
+
+    "4.2_risk_flags":
+        "Adjustments"
+}
+
+
+# ============================================================
+# CONTRIBUTION TYPE
+# ============================================================
+
+def get_contribution_type(
+    score: float,
+    max_score: float
+) -> str:
+
+    if score < 0:
+        return "negative"
+
+    if score == 0:
+        return "weak"
+
+    if max_score > 0 and score >= max_score:
+        return "strong"
+
+    return "positive"
+
+
+# ============================================================
+# FACTOR EXPLANATION
+# ============================================================
+
+def generate_factor_explanation(
+    factor_key: str,
+    factor_data: Dict[str, Any]
+) -> Dict[str, Any]:
+
+    score = factor_data["score"]
+    max_score = factor_data["max"]
+
+    factor_name = FACTOR_NAMES.get(
+        factor_key,
+        factor_key
+    )
+
+    pillar = PILLAR_NAMES.get(
+        factor_key,
+        "Other"
+    )
+
+    contribution_type = get_contribution_type(
+        score,
+        max_score
+    )
+
+    # --------------------------------------------------------
+    # Generate human-readable explanation
+    # --------------------------------------------------------
+
+    if score > 0:
+
+        explanation = (
+            f"{factor_name} contributed "
+            f"+{score} points. "
+            f"Observed value: {factor_data['val']}."
         )
 
-        if item.get(
-            "score",
-            0
-        ) > 0
+    elif score < 0:
+
+        explanation = (
+            f"{factor_name} reduced the score "
+            f"by {abs(score)} points. "
+            f"Observed value: {factor_data['val']}."
+        )
+
+    else:
+
+        explanation = (
+            f"{factor_name} contributed "
+            f"0 points. "
+            f"Observed value: {factor_data['val']}."
+        )
+
+    return {
+
+        "factor_key":
+            factor_key,
+
+        "factor":
+            factor_name,
+
+        "pillar":
+            pillar,
+
+        "score":
+            score,
+
+        "max_score":
+            max_score,
+
+        "contribution_type":
+            contribution_type,
+
+        "value":
+            factor_data["val"],
+
+        "explanation":
+            explanation
+    }
+
+
+# ============================================================
+# BUILD COMPLETE EXPLANATION FOR ONE USER
+# ============================================================
+
+def build_explanation(
+    evaluation: Dict[str, Any]
+) -> Dict[str, Any]:
+
+    subfactors = evaluation[
+        "subfactor_breakdown"
     ]
 
+    factors = []
 
-# ============================================================
-# WEAK FACTORS
-# ============================================================
+    for factor_key, factor_data in subfactors.items():
 
-def get_weak_factors(
-    score_result: Dict[str, Any]
-) -> List[Dict[str, Any]]:
-
-    return [
-
-        {
-            "factor":
-                item["factor"],
-
-            "score":
-                item["score"],
-
-            "max_score":
-                item["max_score"],
-
-            "reason":
-                item["reason"]
-        }
-
-        for item in score_result.get(
-            "components",
-            []
+        factors.append(
+            generate_factor_explanation(
+                factor_key,
+                factor_data
+            )
         )
 
-        if item.get(
-            "score",
-            0
-        ) == 0
-    ]
+    # --------------------------------------------------------
+    # Sort strongest contributions first
+    # --------------------------------------------------------
 
+    positive_factors = sorted(
 
-# ============================================================
-# TOP CONTRIBUTORS
-# ============================================================
-
-def get_top_factors(
-    score_result: Dict[str, Any],
-    limit: int = 5
-) -> List[Dict[str, Any]]:
-
-    components = [
-
-        item
-
-        for item in score_result.get(
-            "components",
-            []
-        )
-
-        if item.get(
-            "score",
-            0
-        ) > 0
-    ]
-
-    components.sort(
+        [
+            factor
+            for factor in factors
+            if factor["score"] > 0
+        ],
 
         key=lambda x:
-            x.get("score", 0),
+            x["score"],
 
         reverse=True
     )
 
-    return components[:limit]
+    # --------------------------------------------------------
+    # Negative factors
+    # --------------------------------------------------------
 
+    negative_factors = sorted(
 
-# ============================================================
-# BUILD EXPLANATION FOR ONE USER
-# ============================================================
+        [
+            factor
+            for factor in factors
+            if factor["score"] < 0
+        ],
 
-def build_explanation(
-    score_result: Dict[str, Any]
-) -> Dict[str, Any]:
-
-    breakdown = get_factor_breakdown(
-        score_result
+        key=lambda x:
+            x["score"]
     )
 
-    positive = get_positive_factors(
-        score_result
+    # --------------------------------------------------------
+    # Weak / zero factors
+    # --------------------------------------------------------
+
+    weak_factors = [
+
+        factor
+
+        for factor in factors
+
+        if factor["score"] == 0
+    ]
+
+    # --------------------------------------------------------
+    # Top contributors
+    # --------------------------------------------------------
+
+    top_contributors = positive_factors[:5]
+
+    # --------------------------------------------------------
+    # Calculate contribution percentages
+    # --------------------------------------------------------
+
+    positive_total = sum(
+
+        factor["score"]
+
+        for factor in positive_factors
     )
 
-    weak = get_weak_factors(
-        score_result
-    )
+    for factor in factors:
 
-    top_factors = get_top_factors(
-        score_result
-    )
+        if positive_total > 0 and factor["score"] > 0:
+
+            factor["contribution_percentage"] = round(
+
+                (
+                    factor["score"]
+                    / positive_total
+                ) * 100,
+
+                2
+            )
+
+        else:
+
+            factor["contribution_percentage"] = 0
+
+    # --------------------------------------------------------
+    # Improvement suggestions
+    # --------------------------------------------------------
+
+    improvement_suggestions = []
+
+    for factor in weak_factors:
+
+        improvement_suggestions.append({
+
+            "factor":
+                factor["factor"],
+
+            "current_score":
+                factor["score"],
+
+            "potential_points":
+                factor["max_score"],
+
+            "suggestion":
+                (
+                    f"Improve {factor['factor']} "
+                    f"to increase its contribution "
+                    f"towards the credit score."
+                )
+        })
 
     return {
 
-        "summary": {
+        "user_id":
+            evaluation["user_id"],
 
-            "user_id":
-                score_result.get(
-                    "user_id"
-                ),
+        "applicant_id":
+            evaluation["applicant_id"],
 
-            "raw_score":
-                score_result.get(
-                    "raw_score"
-                ),
+        "final_credit_score":
+            evaluation["final_credit_score"],
 
-            "positive_factor_count":
-                len(positive),
+        "risk_tier":
+            evaluation["risk_tier"],
 
-            "weak_factor_count":
-                len(weak)
-        },
+        "pillar_breakdown":
+            evaluation["pillar_breakdown"],
 
-        "breakdown":
-            breakdown,
+        "factor_count":
+            len(factors),
 
         "positive_factors":
-            positive,
+            positive_factors,
+
+        "negative_factors":
+            negative_factors,
 
         "weak_factors":
-            weak,
+            weak_factors,
 
-        "top_contributors": [
+        "top_contributors":
+            top_contributors,
 
-            {
-                "factor":
-                    item["factor"],
+        "improvement_suggestions":
+            improvement_suggestions,
 
-                "score":
-                    item["score"],
-
-                "reason":
-                    item["reason"]
-            }
-
-            for item in top_factors
-        ]
+        "all_factors":
+            factors
     }
 
 
@@ -304,13 +447,11 @@ def build_explanation(
 # GENERATE CSV FOR ALL USERS
 # ============================================================
 
-def generate_explanation_csv():
-
-    # --------------------------------------------------------
-    # Load real users
-    # --------------------------------------------------------
+def generate_factor_analysis_csv():
 
     users = load_users()
+
+    engine = AltCreditRuleEngine()
 
     print(
         f"Loaded {len(users)} users."
@@ -322,40 +463,48 @@ def generate_explanation_csv():
     failed = 0
 
     # --------------------------------------------------------
-    # Process every user
+    # Process all real users
     # --------------------------------------------------------
 
     for user in users:
 
         try:
 
-            # Run REAL rule engine
-            score_result = calculate_score(
+            # Run your NEW rule engine
+            evaluation = engine.evaluate_user(
                 user
             )
 
-            # Build explanation
             explanation = build_explanation(
-                score_result
+                evaluation
             )
 
+            # ------------------------------------------------
             # One row per factor
+            # ------------------------------------------------
+
             for factor in explanation[
-                "breakdown"
+                "all_factors"
             ]:
 
                 rows.append({
 
                     "user_id":
-                        user.get("user_id"),
+                        explanation["user_id"],
 
                     "applicant_id":
-                        user.get("applicant_id"),
+                        explanation["applicant_id"],
 
-                    "raw_score":
-                        score_result.get(
-                            "raw_score"
-                        ),
+                    "final_credit_score":
+                        explanation[
+                            "final_credit_score"
+                        ],
+
+                    "risk_tier":
+                        explanation["risk_tier"],
+
+                    "pillar":
+                        factor["pillar"],
 
                     "factor":
                         factor["factor"],
@@ -366,14 +515,21 @@ def generate_explanation_csv():
                     "max_score":
                         factor["max_score"],
 
-                    "contribution":
-                        factor["contribution"],
+                    "contribution_type":
+                        factor[
+                            "contribution_type"
+                        ],
 
-                    "status":
-                        factor["status"],
+                    "value":
+                        factor["value"],
 
-                    "reason":
-                        factor["reason"]
+                    "contribution_percentage":
+                        factor[
+                            "contribution_percentage"
+                        ],
+
+                    "explanation":
+                        factor["explanation"]
                 })
 
             successful += 1
@@ -388,31 +544,32 @@ def generate_explanation_csv():
                 f"{error}"
             )
 
-    # --------------------------------------------------------
-    # CSV columns
-    # --------------------------------------------------------
+    # ========================================================
+    # WRITE CSV
+    # ========================================================
 
     fieldnames = [
 
         "user_id",
         "applicant_id",
-        "raw_score",
 
+        "final_credit_score",
+        "risk_tier",
+
+        "pillar",
         "factor",
 
         "score",
         "max_score",
 
-        "contribution",
+        "contribution_type",
 
-        "status",
+        "value",
 
-        "reason"
+        "contribution_percentage",
+
+        "explanation"
     ]
-
-    # --------------------------------------------------------
-    # Write CSV
-    # --------------------------------------------------------
 
     with open(
         OUTPUT_PATH,
@@ -430,13 +587,13 @@ def generate_explanation_csv():
 
         writer.writerows(rows)
 
-    # --------------------------------------------------------
-    # Summary
-    # --------------------------------------------------------
+    # ========================================================
+    # SUMMARY
+    # ========================================================
 
-    print("\n" + "=" * 60)
-    print("EXPLAINABILITY GENERATION COMPLETE")
-    print("=" * 60)
+    print("\n" + "=" * 65)
+    print("FACTOR ANALYSIS COMPLETE")
+    print("=" * 65)
 
     print(
         f"Total users:       {len(users)}"
@@ -451,14 +608,14 @@ def generate_explanation_csv():
     )
 
     print(
-        f"Explanation rows:  {len(rows)}"
+        f"Factor rows:       {len(rows)}"
     )
 
     print(
         f"Output:            {OUTPUT_PATH}"
     )
 
-    print("=" * 60)
+    print("=" * 65)
 
 
 # ============================================================
@@ -467,4 +624,4 @@ def generate_explanation_csv():
 
 if __name__ == "__main__":
 
-    generate_explanation_csv()
+    generate_factor_analysis_csv()

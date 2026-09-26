@@ -1,27 +1,23 @@
 """
-Product Recommendation Engine
+Automated Product Recommendation Engine
 
-Uses the REAL users from:
-    machine_learning/data/processed/merged_data.json
-
-Uses products from:
-    machine_learning/data/processed/product_catalog.json
-
-Uses scoring logic from:
-    machine_learning/engines/rule_engine.py
+Uses:
+    merged_data.json
+    product_catalog.json
+    AltCreditRuleEngine
 
 Output:
-    machine_learning/data/processed/product_recommendations.csv
+    product_recommendations.csv
 
 One row = one user.
 """
 
-from typing import Dict, Any, List
 from pathlib import Path
+from typing import Dict, Any, List
 import json
 import csv
 
-from rule_engine import calculate_score
+from rule_engine import AltCreditRuleEngine
 
 
 # ============================================================
@@ -32,15 +28,13 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 DATA_PATH = (
     BASE_DIR
-    / "data"
-    / "processed"
+    / "data"  
     / "merged_data.json"
 )
 
 PRODUCT_PATH = (
     BASE_DIR
     / "data"
-    / "processed"
     / "product_catalog.json"
 )
 
@@ -56,12 +50,10 @@ OUTPUT_PATH = (
 # LOAD USERS
 # ============================================================
 
-def load_users(
-    path: Path = DATA_PATH
-) -> List[Dict[str, Any]]:
+def load_users() -> List[Dict[str, Any]]:
 
     with open(
-        path,
+        DATA_PATH,
         "r",
         encoding="utf-8"
     ) as file:
@@ -71,23 +63,20 @@ def load_users(
     if not isinstance(users, list):
 
         raise ValueError(
-            "merged_data.json must contain "
-            "a list of users."
+            "merged_data.json must contain a list."
         )
 
     return users
 
 
 # ============================================================
-# LOAD PRODUCT CATALOG
+# LOAD PRODUCTS
 # ============================================================
 
-def load_product_catalog(
-    path: Path = PRODUCT_PATH
-) -> List[Dict[str, Any]]:
+def load_product_catalog() -> List[Dict[str, Any]]:
 
     with open(
-        path,
+        PRODUCT_PATH,
         "r",
         encoding="utf-8"
     ) as file:
@@ -106,7 +95,7 @@ def load_product_catalog(
 
     raise ValueError(
         "product_catalog.json must contain "
-        "a list or a 'products' field."
+        "a list or 'products' field."
     )
 
 
@@ -150,7 +139,7 @@ def get_min_score(
     product: Dict[str, Any]
 ) -> float:
 
-    value = (
+    return float(
 
         product.get("min_score")
 
@@ -158,8 +147,6 @@ def get_min_score(
 
         or 0
     )
-
-    return float(value)
 
 
 # ============================================================
@@ -172,13 +159,9 @@ def recommend_products(
 ) -> Dict[str, Any]:
 
     eligible = []
-    unavailable = []
+    ineligible = []
 
     for product in products:
-
-        minimum_score = get_min_score(
-            product
-        )
 
         product_id = get_product_id(
             product
@@ -188,8 +171,12 @@ def recommend_products(
             product
         )
 
+        minimum_score = get_min_score(
+            product
+        )
+
         # ----------------------------------------------------
-        # User is eligible
+        # Eligible
         # ----------------------------------------------------
 
         if score >= minimum_score:
@@ -209,16 +196,22 @@ def recommend_products(
                     round(
                         score - minimum_score,
                         2
-                    )
+                    ),
+
+                "eligibility":
+                    "eligible",
+
+                "product_details":
+                    product
             })
 
         # ----------------------------------------------------
-        # User is not eligible
+        # Not eligible
         # ----------------------------------------------------
 
         else:
 
-            unavailable.append({
+            ineligible.append({
 
                 "product_id":
                     product_id,
@@ -233,13 +226,16 @@ def recommend_products(
                     round(
                         minimum_score - score,
                         2
-                    )
+                    ),
+
+                "eligibility":
+                    "not_eligible",
+
+                "product_details":
+                    product
             })
 
-    # --------------------------------------------------------
-    # Highest eligible product first
-    # --------------------------------------------------------
-
+    # Highest score requirement first
     eligible.sort(
 
         key=lambda x:
@@ -248,19 +244,12 @@ def recommend_products(
         reverse=True
     )
 
-    # --------------------------------------------------------
-    # Closest unavailable product first
-    # --------------------------------------------------------
-
-    unavailable.sort(
+    # Closest product first
+    ineligible.sort(
 
         key=lambda x:
             x["minimum_score"]
     )
-
-    # --------------------------------------------------------
-    # Highest product currently available
-    # --------------------------------------------------------
 
     highest_eligible = (
 
@@ -271,15 +260,11 @@ def recommend_products(
         else None
     )
 
-    # --------------------------------------------------------
-    # Product requiring the fewest additional points
-    # --------------------------------------------------------
-
     next_product = (
 
-        unavailable[0]
+        ineligible[0]
 
-        if unavailable
+        if ineligible
 
         else None
     )
@@ -293,7 +278,7 @@ def recommend_products(
             eligible,
 
         "ineligible_products":
-            unavailable,
+            ineligible,
 
         "highest_eligible_product":
             highest_eligible,
@@ -304,18 +289,16 @@ def recommend_products(
 
 
 # ============================================================
-# PROCESS ALL REAL USERS
+# GENERATE RECOMMENDATIONS FOR ALL USERS
 # ============================================================
 
 def generate_product_recommendations():
 
-    # --------------------------------------------------------
-    # Load data
-    # --------------------------------------------------------
-
     users = load_users()
 
     products = load_product_catalog()
+
+    engine = AltCreditRuleEngine()
 
     print(
         f"Loaded {len(users)} users."
@@ -339,19 +322,23 @@ def generate_product_recommendations():
         try:
 
             # ------------------------------------------------
-            # Calculate actual score
+            # Calculate score using NEW rule engine
             # ------------------------------------------------
 
-            score_result = calculate_score(
+            evaluation = engine.evaluate_user(
                 user
             )
 
-            score = score_result[
-                "raw_score"
+            score = evaluation[
+                "final_credit_score"
+            ]
+
+            risk_tier = evaluation[
+                "risk_tier"
             ]
 
             # ------------------------------------------------
-            # Product recommendation
+            # Product matching
             # ------------------------------------------------
 
             recommendation = recommend_products(
@@ -363,30 +350,30 @@ def generate_product_recommendations():
                 "eligible_products"
             ]
 
-            highest = recommendation[
-                "highest_eligible_product"
-            ]
-
             next_product = recommendation[
                 "next_product"
             ]
 
+            highest = recommendation[
+                "highest_eligible_product"
+            ]
+
             # ------------------------------------------------
-            # Convert product lists to CSV strings
+            # Product IDs
             # ------------------------------------------------
 
             eligible_ids = [
 
-                product["product_id"]
+                item["product_id"]
 
-                for product in eligible
+                for item in eligible
             ]
 
             eligible_names = [
 
-                product["product_name"]
+                item["product_name"]
 
-                for product in eligible
+                for item in eligible
             ]
 
             # ------------------------------------------------
@@ -401,8 +388,11 @@ def generate_product_recommendations():
                 "applicant_id":
                     user.get("applicant_id"),
 
-                "raw_score":
+                "final_credit_score":
                     score,
+
+                "risk_tier":
+                    risk_tier,
 
                 "eligible_product_count":
                     len(eligible),
@@ -476,20 +466,18 @@ def generate_product_recommendations():
         "user_id",
         "applicant_id",
 
-        "raw_score",
+        "final_credit_score",
+        "risk_tier",
 
         "eligible_product_count",
 
         "eligible_product_ids",
-
         "eligible_products",
 
         "highest_eligible_product_id",
-
         "highest_eligible_product",
 
         "next_product_id",
-
         "next_product",
 
         "points_needed_for_next_product"
@@ -515,9 +503,9 @@ def generate_product_recommendations():
     # SUMMARY
     # ========================================================
 
-    print("\n" + "=" * 60)
-    print("PRODUCT RECOMMENDATION GENERATION COMPLETE")
-    print("=" * 60)
+    print("\n" + "=" * 65)
+    print("PRODUCT RECOMMENDATION ENGINE COMPLETE")
+    print("=" * 65)
 
     print(
         f"Total users:       {len(users)}"
@@ -539,7 +527,7 @@ def generate_product_recommendations():
         f"Output:            {OUTPUT_PATH}"
     )
 
-    print("=" * 60)
+    print("=" * 65)
 
 
 # ============================================================
