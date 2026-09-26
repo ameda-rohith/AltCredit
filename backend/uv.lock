@@ -1,6 +1,10 @@
 version = 1
 revision = 3
+<<<<<<< HEAD
 requires-python = ">=3.12"
+=======
+requires-python = ">=3.13"
+>>>>>>> 17e496277f212d308f56a5ae9b622b81e02d4a01
 
 [[package]]
 name = "backend"
