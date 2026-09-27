@@ -23,6 +23,12 @@ export function AuthProvider({ children }) {
       setS(next)
       return res
     },
+    async registerLender(body) {
+      const res = await api.registerLender(body)
+      session.set(res, true)
+      setS(res)
+      return res
+    },
     logout() { session.clear(); setS(null) },
   }
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>

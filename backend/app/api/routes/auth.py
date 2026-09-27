@@ -74,3 +74,26 @@ def register(body: schemas.RegisterIn, db: Session = Depends(get_db)):
         "risk_tier": result["risk_tier"],
         "missing_fields": result["missing_fields"],
     }
+
+
+@router.post("/register-lender", status_code=status.HTTP_201_CREATED)
+def register_lender(body: schemas.LenderRegisterIn, db: Session = Depends(get_db)):
+    """Lender portal signup: create the institution with its lending policy."""
+    if db.scalar(select(models.Lender).where(models.Lender.username == body.username)):
+        raise HTTPException(status.HTTP_409_CONFLICT, "username already taken")
+    if db.scalar(
+        select(models.Lender).where(
+            func.lower(models.Lender.company_name) == body.company_name.lower()
+        )
+    ):
+        raise HTTPException(status.HTTP_409_CONFLICT, "company already registered")
+    lender = models.Lender(
+        company_name=body.company_name,
+        username=body.username,
+        password_hash=security.hash_password(body.password),
+        min_credit_score_requirement=body.min_credit_score_requirement,
+        max_pd_threshold=body.max_pd_threshold,
+    )
+    db.add(lender)
+    db.commit()
+    return {"role": "lender", "subject": str(lender.lender_id)}

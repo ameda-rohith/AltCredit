@@ -8,6 +8,7 @@ import Dashboard from './pages/Dashboard'
 import Simulator from './pages/Simulator'
 import Recommendations from './pages/Recommendations'
 import Lender from './pages/Lender'
+import LenderSignup from './pages/LenderSignup'
 
 function Guard({ role, children }) {
   const { role: current } = useAuth()
@@ -23,6 +24,7 @@ export default function App() {
       <Route path="/" element={role ? <Navigate to={role === 'lender' ? '/lender' : '/dashboard'} replace /> : <Landing />} />
       <Route path="/login" element={role ? <Navigate to={role === 'lender' ? '/lender' : '/dashboard'} replace /> : <SignIn />} />
       <Route path="/signup" element={<Signup />} />
+      <Route path="/lender/signup" element={<LenderSignup />} />
       <Route element={<Guard role="user"><Layout /></Guard>}>
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/simulator" element={<Simulator />} />

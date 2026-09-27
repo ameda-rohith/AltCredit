@@ -47,7 +47,9 @@ export default function SignIn() {
         <label className="row" style={{ fontSize: 14 }}><input type="checkbox" checked={f.remember} onChange={(e) => setF({ ...f, remember: e.target.checked })} /> Remember this device</label>
         {err && <div className="err" role="alert">{err}</div>}
         <button className="btn btn-primary" disabled={busy} style={{ padding: 16, fontSize: 17 }}>{busy ? 'Please wait…' : 'Sign In'} <Icon name="arrow_forward" /></button>
-        {role === 'user' && <p style={{ fontSize: 14 }}>Don't have an ALTcredit account? <Link className="link" to="/signup">Sign up &amp; get scored</Link></p>}
+        <p style={{ fontSize: 14 }}>{role === 'user'
+          ? <>Don't have an ALTcredit account? <Link className="link" to="/signup">Sign up &amp; get scored</Link></>
+          : <>New lending institution? <Link className="link" to="/lender/signup">Register as a lender</Link></>}</p>
       </form>
     </div>
   )

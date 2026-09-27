@@ -26,15 +26,18 @@ export default function Lender() {
   const fetchPage = useCallback(() => {
     setRes((r) => ({ ...r, loading: true }))
     const { min_score, ...rest } = applied
-    api.candidates(lenderId, { ...rest, min_score: min_score || '', sort: 'score_desc', limit: LIMIT, offset: page * LIMIT })
+    api.candidates(lenderId, { ...rest, q: q.trim(), min_score: min_score || '', sort: 'score_desc', limit: LIMIT, offset: page * LIMIT })
       .then((data) => setRes({ data }), (error) => setRes({ error }))
-  }, [applied, page, lenderId])
-  useEffect(fetchPage, [fetchPage])
+  }, [applied, page, lenderId, q])
+  useEffect(() => { const t = setTimeout(fetchPage, q ? 250 : 0); return () => clearTimeout(t) }, [fetchPage])
+  // rules apply automatically shortly after the last edit; the button just applies immediately
+  useEffect(() => { const t = setTimeout(() => { setApplied(rules); setPage(0) }, 500); return () => clearTimeout(t) }, [rules])
   useEffect(() => { api.candidates(lenderId, { only_qualifying: false, limit: 1 }).then((d) => setPool(d.total), () => {}) }, [lenderId])
 
   const apply = () => { setApplied(rules); setPage(0) }
+  const onSearch = (e) => { setQ(e.target.value); setPage(0) }
   const reset = () => { setRules(DEFAULT_RULES); setApplied(DEFAULT_RULES); setPage(0) }
-  const rows = (res.data?.results || []).filter((c) => !q || c.anon_lead_id.toLowerCase().includes(q.toLowerCase()))
+  const rows = res.data?.results || []
   const toggle = (id) => setSel((s) => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n })
   const allShown = rows.length > 0 && rows.every((c) => sel.has(c.anon_lead_id))
   const toggleAll = () => setSel((s) => { const n = new Set(s); rows.forEach((c) => (allShown ? n.delete(c.anon_lead_id) : n.add(c.anon_lead_id))); return n })
@@ -62,7 +65,7 @@ export default function Lender() {
 
       <div className="lmain">
         <header className="topbar">
-          <div className="input-icon" style={{ flex: 1, maxWidth: 480 }}><Icon name="search" /><input placeholder="Filter this page by candidate token, e.g. ANON-98A4…" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search candidates" /></div>
+          <div className="input-icon" style={{ flex: 1, maxWidth: 480 }}><Icon name="search" /><input placeholder="Search all candidates by token, e.g. ANON-98A4…" value={q} onChange={onSearch} aria-label="Search candidates" /></div>
           <span className="chip chip-pos"><i className="dot" style={{ background: 'var(--emerald)' }} />Anonymised data only</span>
           <div className="who"><div><strong>{me.data?.company_name}</strong><small>Lender user</small></div><span className="avatar"><Icon name="account_balance" /></span></div>
         </header>

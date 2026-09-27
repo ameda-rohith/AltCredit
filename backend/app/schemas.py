@@ -9,6 +9,14 @@ class LoginIn(BaseModel):
     role: Literal["user", "lender"] = "user"
 
 
+class LenderRegisterIn(BaseModel):
+    company_name: str = Field(min_length=2, max_length=120)
+    username: str = Field(pattern=r"^[a-z0-9_]{3,40}$")
+    password: str = Field(min_length=8, max_length=200)
+    min_credit_score_requirement: float = Field(default=650, ge=0, le=1000)
+    max_pd_threshold: float = Field(default=0.35, gt=0, le=1)
+
+
 class ProfileIn(BaseModel):
     """Any subset of the engine's inputs; omitted fields keep their stored value."""
 

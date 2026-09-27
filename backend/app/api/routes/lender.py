@@ -47,6 +47,7 @@ def search_candidates(
     max_pd: float | None = Query(None, ge=0, le=1),
     min_income: float | None = Query(None, ge=0),
     max_dti: float | None = Query(None, ge=0),
+    q: str | None = Query(None, max_length=40),
     only_qualifying: bool = True,
     sort: str = Query("score_desc", pattern="^(score_desc|score_asc|income_desc)$"),
     limit: int = Query(50, ge=1, le=200),
@@ -62,6 +63,8 @@ def search_candidates(
             L.credit_score >= lender.min_credit_score_requirement,
             L.predicted_pd <= lender.max_pd_threshold,
         ]
+    if q and q.strip():
+        conds.append(L.anon_lead_id.ilike(f"%{q.strip()}%"))
     if min_score is not None:
         conds.append(L.credit_score >= min_score)
     if max_score is not None:

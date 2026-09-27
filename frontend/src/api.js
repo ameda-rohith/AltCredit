@@ -44,6 +44,7 @@ async function request(path, { method = 'GET', body, form, raw, params } = {}) {
 export const api = {
   login: (username, password, role) => request('/auth/login', { method: 'POST', body: { username, password, role } }),
   register: (body) => request('/auth/register', { method: 'POST', body }),
+  registerLender: (body) => request('/auth/register-lender', { method: 'POST', body }),
   score: (uid) => request(`/scoring/${uid}`),
   exportJson: (uid) => request(`/scoring/${uid}/export.json`),
   dashboard: (uid) => request(`/dashboard/${uid}`),
