@@ -18,11 +18,10 @@ function Guard({ role, children }) {
 }
 
 export default function App() {
-  const { role } = useAuth()
   return (
     <Routes>
-      <Route path="/" element={role ? <Navigate to={role === 'lender' ? '/lender' : '/dashboard'} replace /> : <Landing />} />
-      <Route path="/login" element={role ? <Navigate to={role === 'lender' ? '/lender' : '/dashboard'} replace /> : <SignIn />} />
+      <Route path="/" element={<Landing />} />
+      <Route path="/login" element={<SignIn />} />
       <Route path="/signup" element={<Signup />} />
       <Route path="/lender/signup" element={<LenderSignup />} />
       <Route element={<Guard role="user"><Layout /></Guard>}>

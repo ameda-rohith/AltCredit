@@ -1,4 +1,4 @@
-import { NavLink, Outlet, useNavigate } from 'react-router-dom'
+import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { useAuth } from '../auth'
 import { Icon } from './ui'
 
@@ -23,7 +23,7 @@ export default function Layout() {
   return (
     <div className="shell">
       <aside className="sidebar">
-        <Brand />
+        <Link to="/" aria-label="ALTcredit home" style={{ textDecoration: 'none', color: 'inherit' }}><Brand /></Link>
         <nav>
           {NAV.map((n) => (
             <NavLink key={n.to} to={n.to} end={n.end} className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>

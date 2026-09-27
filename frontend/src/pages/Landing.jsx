@@ -1,4 +1,5 @@
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
+import { useAuth } from '../auth'
 import { Brand } from '../components/Layout'
 import { Bar, Icon, ScoreRing } from '../components/ui'
 import './landing.css'
@@ -32,6 +33,9 @@ const PILLARS = [
 ]
 
 export default function Landing() {
+  const { role, logout } = useAuth()
+  const nav = useNavigate()
+  const home = role === 'lender' ? '/lender' : '/dashboard'
   return (
     <div className="landing">
       <header className="l-nav">
@@ -40,8 +44,13 @@ export default function Landing() {
           <a href="#how">How it works</a><a href="#features">Features</a><a href="#score">The score</a><a href="#lenders">For lenders</a>
         </nav>
         <div className="row">
-          <Link className="btn btn-ghost btn-sm" to="/login">Sign in</Link>
-          <Link className="btn btn-primary btn-sm" to="/signup">Get scored</Link>
+          {role ? <>
+            <button className="btn btn-ghost btn-sm" onClick={() => { logout(); nav('/login') }}>Sign out</button>
+            <Link className="btn btn-primary btn-sm" to={home}>Open {role === 'lender' ? 'lender desk' : 'dashboard'}</Link>
+          </> : <>
+            <Link className="btn btn-ghost btn-sm" to="/login">Sign in</Link>
+            <Link className="btn btn-primary btn-sm" to="/signup">Get scored</Link>
+          </>}
         </div>
       </header>
 

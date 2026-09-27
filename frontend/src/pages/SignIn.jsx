@@ -8,7 +8,7 @@ const DEMO = { user: { username: 'USR_002', password: 'altcredit-demo', label: '
   lender: { username: 'primebank', password: 'altcredit-demo', label: 'Prime Bank' } }
 
 export default function SignIn() {
-  const { login } = useAuth()
+  const { login, role: current, userId } = useAuth()
   const nav = useNavigate()
   const [role, setRole] = useState('user')
   const [f, setF] = useState({ username: '', password: '', remember: true })
@@ -29,6 +29,7 @@ export default function SignIn() {
     <div className="auth">
       <form className="auth-card" onSubmit={submit}>
         <Link to="/" aria-label="ALTcredit home"><Brand /></Link>
+        {current && <div className="su-note" role="status"><Icon name="info" /><span>You're signed in as <b>{current === 'lender' ? 'a lender' : userId}</b>. <Link className="link" to={current === 'lender' ? '/lender' : '/dashboard'}>Continue</Link> or sign in below to switch account.</span></div>}
         <h1>{role === 'lender' ? 'Lender sign in' : 'Welcome back'}</h1>
         <p>Sign in to access your ALTcredit dashboard and live score telemetry.</p>
         <div className="seg" role="tablist">

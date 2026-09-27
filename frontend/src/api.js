@@ -56,6 +56,8 @@ export const api = {
     return request(`/scoring/${uid}/transactions`, { method: 'POST', form })
   },
   reportPdf: async (uid) => (await request(`/scoring/${uid}/report.pdf`, { raw: true })).blob(),
+  explain: (uid) => request(`/scoring/${uid}/explain`),
+  exportJson: async (uid) => (await request(`/scoring/${uid}/export.json`, { raw: true })).blob(),
   products: () => request('/products'),
   recommendations: (uid) => request(`/products/${uid}/recommendations`),
   apply: (uid, product_id) => request(`/products/${uid}/apply`, { method: 'POST', body: { product_id } }),

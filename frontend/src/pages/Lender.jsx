@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { api } from '../api'
 import { useAuth } from '../auth'
 import { Bar, ErrorBox, Icon, Modal, Spinner, fmt, tierMeta, useLoad } from '../components/ui'
 
 const LIMIT = 10
-const DEFAULT_RULES = { min_score: 0, min_income: '', max_dti: '', max_pd: '', only_qualifying: true }
+const DEFAULT_RULES = { min_score: 0, min_income: '', max_dti: '', max_pd: '', only_qualifying: false }
 
 export default function Lender() {
   const { logout, userId: lenderId } = useAuth()
@@ -50,7 +50,7 @@ export default function Lender() {
     <div className="lshell">
       <aside className="sidebar">
         <div className="row"><span className="brand-mark" style={{ background: 'var(--emerald-dd)', color: '#fff', fontWeight: 700 }}>{(me.data?.company_name || 'A')[0]}</span>
-          <div><strong style={{ fontFamily: 'var(--head)' }}>ALTcredit</strong><br /><small className="label">Lender portal</small></div></div>
+          <div><Link to="/" style={{ textDecoration: 'none', color: 'inherit' }}><strong style={{ fontFamily: 'var(--head)' }}>ALTcredit</strong></Link><br /><small className="label">Lender portal</small></div></div>
         {me.data && <div className="card" style={{ padding: 16 }}><div className="label">Your policy</div>
           <div className="row between" style={{ marginTop: 8 }}><span>Min score</span><b>{me.data.min_credit_score_requirement}</b></div>
           <div className="row between"><span>Max PD</span><b>{(me.data.max_pd_threshold * 100).toFixed(0)}%</b></div></div>}
@@ -74,7 +74,7 @@ export default function Lender() {
 
           <div className="stats">
             <div className="card stat"><span className="label">Candidate pool</span><b>{fmt(pool)}</b><small>Anonymised, active leads</small></div>
-            <div className="card stat"><span className="label">Filtered matches</span><b>{fmt(res.data?.total)}</b><small>{applied.only_qualifying ? 'Meeting your policy' : 'All scores'}</small></div>
+            <div className="card stat"><span className="label">Filtered matches</span><b>{fmt(res.data?.total)}</b><small>{applied.only_qualifying ? 'Meeting your policy' : 'All candidates'}</small></div>
             <div className="card stat"><span className="label">Dispatched offers</span><b>{list.length}</b><small>{list.filter((o) => o.status === 'OFFERED').length} awaiting response</small></div>
             <div className="card stat"><span className="label">Accepted</span><b>{accepted}</b><small>{list.length ? `${((accepted / list.length) * 100).toFixed(0)}% conversion` : 'No offers yet'}</small></div>
           </div>
