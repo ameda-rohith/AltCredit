@@ -1,19 +1,20 @@
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { api } from '../api'
 import { useAuth } from '../auth'
+import { bankFor } from '../banks'
 import { ErrorBox, Icon, Modal, Spinner, fmt, tierMeta, useLoad } from '../components/ui'
 
 const TABS = [['all', 'All Products'], ['Credit Card', 'Credit Cards'], ['Loan', 'Loans']]
 
 export default function Recommendations() {
   const { userId } = useAuth()
+  const nav = useNavigate()
   const { data, error, loading, reload } = useLoad(
     () => Promise.all([api.recommendations(userId), api.userOffers(userId), api.score(userId)]), [userId])
   const [tab, setTab] = useState('all')
   const [sort, setSort] = useState('high')
-  const [modal, setModal] = useState(null)   // {kind:'apply'|'plan', product, result}
-  const [busy, setBusy] = useState(false)
+  const [modal, setModal] = useState(null)   // {kind:'plan', product, plan}
   const [toast, setToast] = useState('')
 
   if (loading && !data) return <Spinner />
@@ -28,11 +29,6 @@ export default function Recommendations() {
   const list = all.filter((p) => tab === 'all' || p.type === tab).sort((a, b) => (sort === 'high' ? b.min_score - a.min_score : a.min_score - b.min_score))
   const flash = (m) => { setToast(m); setTimeout(() => setToast(''), 3000) }
 
-  const apply = async (p) => {
-    setBusy(true)
-    try { setModal({ kind: 'apply', product: p, result: await api.apply(userId, p.product_id) }) }
-    catch (e) { setModal({ kind: 'apply', product: p, error: e.message }) } finally { setBusy(false) }
-  }
   const plan = async (p) => {
     setModal({ kind: 'plan', product: p, loading: true })
     try { setModal({ kind: 'plan', product: p, plan: await api.target(userId, p.product_id) }) }
@@ -45,7 +41,7 @@ export default function Recommendations() {
 
   return (
     <>
-      <section className="card row between wrap" style={{ background: 'linear-gradient(120deg,#fff,#ecfdf5)' }}>
+      <section className="card row between wrap">
         <div style={{ maxWidth: 620 }}>
           <span className="chip chip-pos">Cashflow engine active</span>
           <h1 style={{ margin: '10px 0' }}>Recommended Products for You</h1>
@@ -97,7 +93,7 @@ export default function Recommendations() {
             <div className="row between" style={{ marginTop: 'auto' }}>
               <small>Final terms set by the partner bank</small>
               {p.eligible
-                ? <button className="btn btn-dark" disabled={busy} onClick={() => apply(p)}>Apply with Provider <Icon name="open_in_new" /></button>
+                ? <button className="btn btn-dark" onClick={() => nav(`/bank/${p.product_id}`)}>Apply with {bankFor(p.product_id).name} <Icon name="open_in_new" /></button>
                 : <button className="btn btn-tint" onClick={() => plan(p)}>How to qualify <Icon name="route" /></button>}
             </div>
           </article>
@@ -110,17 +106,6 @@ export default function Recommendations() {
         <Link to="/simulator" className="btn btn-ghost">Simulate Score Impact <Icon name="tune" /></Link></section>
       <p className="disclaimer">“Recommended” and “Pre-screen eligible” are synthetic suitability indicators, not guaranteed approval or credit extension. Final terms remain at the sole discretion of the partner bank.</p>
 
-      {modal?.kind === 'apply' && (
-        <Modal title={modal.product.product_name} onClose={() => { setModal(null); reload() }}>
-          {modal.error && <div className="err">{modal.error}</div>}
-          {modal.result && (modal.result.status === 'APPROVED' ? <>
-            <div className="chip chip-pos" style={{ alignSelf: 'flex-start' }}><Icon name="check_circle" />Pre-approved by partner bank</div>
-            {Object.entries(modal.result.details).map(([k, v]) => <div key={k} className="row between"><span className="muted">{k.replace(/_/g, ' ')}</span><b>{typeof v === 'number' ? fmt(v) : v}</b></div>)}
-            <div className="row between"><span className="muted">Reference</span><b className="mono">{modal.result.bank_reference}</b></div>
-          </> : <div className="err">Declined: {modal.result.reason}</div>)}
-          <button className="btn btn-navy" onClick={() => { setModal(null); reload() }}>Done</button>
-        </Modal>
-      )}
       {modal?.kind === 'plan' && (
         <Modal title={`Path to ${modal.product.product_name}`} onClose={() => setModal(null)} wide>
           {modal.loading && <Spinner label="Computing the smallest changes…" />}
@@ -129,7 +114,7 @@ export default function Recommendations() {
             <p>{modal.plan.summary}</p>
             <div className="row"><b>{fmt(modal.plan.current_score)}</b><Icon name="arrow_forward" /><b style={{ color: 'var(--emerald-d)' }}>{fmt(modal.plan.projected_score)}</b><small>(target {modal.plan.target_score})</small></div>
             {modal.plan.steps.map((s) => (
-              <div className="step" key={s.feature}><Icon name="flag" /><div><strong>{s.action}</strong><br /><small>{s.advice}</small></div><span className="pts pill-up" style={{ marginLeft: 'auto', background: 'rgba(16,185,129,.12)', color: 'var(--emerald-d)' }}>+{s.points_gain}</span></div>))}
+              <div className="step" key={s.feature}><Icon name="flag" /><div><strong>{s.action}</strong><br /><small>{s.advice}</small></div><span className="pts pill-up" style={{ marginLeft: 'auto' }}>+{s.points_gain}</span></div>))}
             <Link className="btn btn-primary" to="/simulator" onClick={() => setModal(null)}>Try it in the simulator</Link>
           </>}
         </Modal>

@@ -2,7 +2,8 @@ import { useCallback, useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { api } from '../api'
 import { useAuth } from '../auth'
-import { Bar, ErrorBox, Icon, Modal, Spinner, fmt, tierMeta, useLoad } from '../components/ui'
+import { ThemeToggle } from '../components/ThemeToggle'
+import { Bar, CountUp, ErrorBox, Icon, Modal, Spinner, fmt, tierMeta, useLoad } from '../components/ui'
 
 const LIMIT = 10
 const DEFAULT_RULES = { min_score: 0, min_income: '', max_dti: '', max_pd: '', only_qualifying: false }
@@ -49,11 +50,11 @@ export default function Lender() {
   return (
     <div className="lshell">
       <aside className="sidebar">
-        <div className="row"><span className="brand-mark" style={{ background: 'var(--emerald-dd)', color: '#fff', fontWeight: 700 }}>{(me.data?.company_name || 'A')[0]}</span>
+        <div className="row"><span className="brand-mark" style={{ fontWeight: 700 }}>{(me.data?.company_name || 'A')[0]}</span>
           <div><Link to="/" style={{ textDecoration: 'none', color: 'inherit' }}><strong style={{ fontFamily: 'var(--head)' }}>ALTcredit</strong></Link><br /><small className="label">Lender portal</small></div></div>
         {me.data && <div className="card" style={{ padding: 16 }}><div className="label">Your policy</div>
           <div className="row between" style={{ marginTop: 8 }}><span>Min score</span><b>{me.data.min_credit_score_requirement}</b></div>
-          <div className="row between"><span>Max PD</span><b>{(me.data.max_pd_threshold * 100).toFixed(0)}%</b></div></div>}
+          <div className="row between"><span>Max risk indicator</span><b>{(me.data.max_pd_threshold * 100).toFixed(0)}%</b></div></div>}
         <nav>
           <button className={`nav-item ${view === 'pipeline' ? 'active' : ''}`} onClick={() => setView('pipeline')}><Icon name="group_search" />Candidate Search</button>
           <button className={`nav-item ${view === 'offers' ? 'active' : ''}`} onClick={() => setView('offers')}><Icon name="campaign" />Offer Campaigns
@@ -67,7 +68,7 @@ export default function Lender() {
         <header className="topbar">
           <div className="input-icon" style={{ flex: 1, maxWidth: 480 }}><Icon name="search" /><input placeholder="Search all candidates by token, e.g. ANON-98A4…" value={q} onChange={onSearch} aria-label="Search candidates" /></div>
           <span className="chip chip-pos"><i className="dot" style={{ background: 'var(--emerald)' }} />Anonymised data only</span>
-          <div className="who"><div><strong>{me.data?.company_name}</strong><small>Lender user</small></div><span className="avatar"><Icon name="account_balance" /></span></div>
+          <div className="who"><ThemeToggle /><div><strong>{me.data?.company_name}</strong><small>Lender user</small></div><span className="avatar"><Icon name="account_balance" /></span></div>
         </header>
         <main className="content">
           <div><h1>Institutional Desk</h1><p className="muted">Browse anonymised candidates, assess risk profiles and push pre-approved offers. Identities are revealed only after a candidate accepts.</p></div>
@@ -88,7 +89,7 @@ export default function Lender() {
                   <div className="row between"><small>0 High risk</small><small>550</small><small>650</small><small>750+</small></div></div>
                 <label className="field rule"><span>Min monthly income</span><input type="number" min="0" placeholder="e.g. 2500" value={rules.min_income} onChange={upd('min_income')} /></label>
                 <label className="field rule"><span>Max debt-to-income <small>ratio</small></span><input type="number" min="0" step="0.05" placeholder="e.g. 0.35" value={rules.max_dti} onChange={upd('max_dti')} /></label>
-                <label className="field rule"><span>Max default probability <small>0–1</small></span><input type="number" min="0" max="1" step="0.05" placeholder="e.g. 0.3" value={rules.max_pd} onChange={upd('max_pd')} /></label>
+                <label className="field rule"><span>Max risk indicator <small>0–1, score-derived</small></span><input type="number" min="0" max="1" step="0.05" placeholder="e.g. 0.3" value={rules.max_pd} onChange={upd('max_pd')} /></label>
                 <label className="row rule"><input type="checkbox" checked={rules.only_qualifying} onChange={upd('only_qualifying')} /> Only candidates meeting my lending policy</label>
                 <button className="btn btn-dark" style={{ width: '100%', marginTop: 18 }} onClick={apply}><Icon name="task_alt" /> Apply Filters</button>
               </aside>
@@ -100,7 +101,7 @@ export default function Lender() {
                 </div>
                 {res.error ? <ErrorBox error={res.error} retry={fetchPage} /> : res.loading && !res.data ? <Spinner /> : (
                   <div className="tbl-wrap"><table>
-                    <thead><tr><th></th><th>Candidate</th><th>ALTcredit score</th><th>Default prob.</th><th>Monthly income</th><th>DTI</th><th></th></tr></thead>
+                    <thead><tr><th></th><th>Candidate</th><th>ALTcredit score</th><th title="Derived from the score, not a statistical prediction">Risk indicator</th><th>Monthly income</th><th>DTI</th><th></th></tr></thead>
                     <tbody>{rows.map((c) => { const t = tierMeta(c.risk_tier); return (
                       <tr key={c.anon_lead_id}>
                         <td><input type="checkbox" checked={sel.has(c.anon_lead_id)} onChange={() => toggle(c.anon_lead_id)} aria-label={`Select ${c.anon_lead_id}`} /></td>
@@ -127,7 +128,7 @@ export default function Lender() {
                   <thead><tr><th>Offer</th><th>Candidate</th><th>Type</th><th>Amount</th><th>Rate</th><th>Status</th><th>Contact</th></tr></thead>
                   <tbody>{list.map((o) => (
                     <tr key={o.offer_id}><td>#{o.offer_id}</td><td className="mono">{o.anon_lead_id}</td><td>{o.offer_type}</td><td>{fmt(o.loan_amount)}</td><td>{o.interest_rate}%</td>
-                      <td><span className={`chip ${o.status === 'ACCEPTED' ? 'chip-pos' : o.status === 'DECLINED' ? 'chip-bad' : 'chip-warn'}`}>{o.status}</span></td>
+                      <td><span className={`chip ${o.status === 'ACCEPTED' ? 'chip-pos' : o.status === 'DECLINED' ? 'chip-bad' : o.status === 'WITHDRAWN' ? '' : 'chip-warn'}`}>{o.status}</span></td>
                       <td>{o.contact ? <><b>{o.contact.full_name}</b><br /><small>{o.contact.email}</small></> : <small><Icon name="lock" /> Hidden until accepted</small>}</td></tr>))}</tbody>
                 </table>{!list.length && <div className="state">No offers dispatched yet.</div>}</div>)}
             </section>
@@ -148,7 +149,7 @@ function Detail({ lenderId, id, onClose, onPush }) {
     <Modal title={`Risk dossier · ${id}`} onClose={onClose} wide>
       {loading && <Spinner />}{error && <ErrorBox error={error} />}
       {d && <>
-        <div className="row wrap"><b style={{ fontSize: 40, fontFamily: 'var(--head)' }}>{d.credit_score}</b><span className={`chip ${tierMeta(d.risk_tier).chip}`}>{d.risk_tier}</span>
+        <div className="row wrap"><b style={{ fontSize: 40, fontFamily: 'var(--head)' }}><CountUp value={d.credit_score} /></b><span className={`chip ${tierMeta(d.risk_tier).chip}`}>{d.risk_tier}</span>
           <span className={`chip ${d.qualifies ? 'chip-pos' : 'chip-warn'}`}>{d.qualifies ? 'Meets your policy' : 'Below your policy'}</span></div>
         <div className="grid3" style={{ gap: 12 }}>{P.map(([k, l, m]) => <div key={k}><div className="row between"><small>{l}</small><b>{d.pillar_breakdown[k]}</b></div><Bar value={d.pillar_breakdown[k]} max={m} /></div>)}</div>
         <div className="tbl-wrap"><table><thead><tr><th>Factor</th><th>Observed</th><th>Points</th></tr></thead>

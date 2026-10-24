@@ -18,7 +18,7 @@ export function AuthProvider({ children }) {
     },
     async register(body) {
       const res = await api.register(body)
-      const next = { role: 'user', subject: res.user_id }
+      const next = { role: 'user', subject: res.user_id, token: res.token }
       session.set(next, true)
       setS(next)
       return res

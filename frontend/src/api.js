@@ -26,6 +26,8 @@ function detailText(d) {
 async function request(path, { method = 'GET', body, form, raw, params } = {}) {
   const headers = {}
   if (body) headers['Content-Type'] = 'application/json'
+  const token = session.get()?.token
+  if (token) headers.Authorization = `Bearer ${token}`
   const qs = params ? '?' + new URLSearchParams(Object.entries(params).filter(([, v]) => v !== '' && v != null)) : ''
   let res
   try {
@@ -36,6 +38,11 @@ async function request(path, { method = 'GET', body, form, raw, params } = {}) {
   if (!res.ok) {
     let d
     try { d = (await res.json()).detail } catch { /* not json */ }
+    // An expired or missing token on a protected call: drop the stale session and sign in again.
+    if (res.status === 401 && !path.startsWith('/auth/')) {
+      session.clear()
+      if (location.pathname !== '/login') location.assign('/login')
+    }
     throw new ApiError(res.status, detailText(d))
   }
   return raw ? res : res.json()
@@ -57,10 +64,12 @@ export const api = {
   },
   reportPdf: async (uid) => (await request(`/scoring/${uid}/report.pdf`, { raw: true })).blob(),
   explain: (uid) => request(`/scoring/${uid}/explain`),
-  exportJson: async (uid) => (await request(`/scoring/${uid}/export.json`, { raw: true })).blob(),
+  exportJsonFile: async (uid) => (await request(`/scoring/${uid}/export.json`, { raw: true })).blob(),
   products: () => request('/products'),
   recommendations: (uid) => request(`/products/${uid}/recommendations`),
   apply: (uid, product_id) => request(`/products/${uid}/apply`, { method: 'POST', body: { product_id } }),
+  consent: (uid) => request(`/users/${uid}/consent`),
+  setConsent: (uid, share) => request(`/users/${uid}/consent`, { method: 'PUT', body: { share_with_lenders: share } }),
   userOffers: (uid) => request(`/products/${uid}/offers`),
   respondOffer: (uid, id, decision) => request(`/products/${uid}/offers/${id}/respond`, { method: 'POST', body: { decision } }),
   lenderMe: (id) => request(`/lender/${id}`),

@@ -3,7 +3,20 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="theme-color" content="#e6ebf2" />
     <title>ALTcredit</title>
+    <script>
+      (function () {
+        var t = 'light';
+        try {
+          t = localStorage.getItem('altcredit-theme');
+          if (t !== 'dark' && t !== 'light') t = matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+        } catch (e) { t = 'light'; }
+        document.documentElement.dataset.theme = t;
+        document.querySelector('meta[name=theme-color]').content = t === 'dark' ? '#1c1f1e' : '#e6ebf2';
+      })();
+    </script>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Plus+Jakarta+Sans:wght@500;600;700;800&family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,400,0..1,0&display=swap" rel="stylesheet" />
   </head>

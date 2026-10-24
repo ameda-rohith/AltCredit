@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 export const Icon = ({ name, className = '' }) => <span className={`material-symbols-outlined ${className}`} aria-hidden="true">{name}</span>
 
@@ -18,9 +18,9 @@ export function ScoreRing({ value, max = 1000, colour = '#10B981', size = 108, c
   return (
     <div className="ring" style={{ width: size, height: size }}>
       <svg viewBox="0 0 100 100" width={size} height={size} role="img" aria-label={`Score ${value} of ${max}`}>
-        <circle cx="50" cy="50" r={r} fill="none" stroke="#dce9ff" strokeWidth="9" />
+        <circle cx="50" cy="50" r={r} fill="none" style={{ stroke: 'var(--track)' }} strokeWidth="9" />
         <circle cx="50" cy="50" r={r} fill="none" stroke={colour} strokeWidth="9" strokeLinecap="round"
-          strokeDasharray={c} strokeDashoffset={c * (1 - pct)} transform="rotate(-90 50 50)" style={{ transition: 'stroke-dashoffset .6s' }} />
+          strokeDasharray={c} strokeDashoffset={c * (1 - pct)} transform="rotate(-90 50 50)" style={{ '--len': c, transition: 'stroke-dashoffset .6s' }} />
       </svg>
       <div className="ring-inner">{children}</div>
     </div>
@@ -32,9 +32,9 @@ export function Arc({ value, max = 1000, colour = '#10B981' }) {
   const len = Math.PI * 80
   return (
     <svg viewBox="0 0 200 110" className="arc" role="img" aria-label={`Projected score ${value}`}>
-      <path d="M20 100 A80 80 0 0 1 180 100" fill="none" stroke="rgba(255,255,255,.12)" strokeWidth="14" strokeLinecap="round" />
+      <path d="M20 100 A80 80 0 0 1 180 100" fill="none" style={{ stroke: 'var(--track)' }} strokeWidth="14" strokeLinecap="round" />
       <path d="M20 100 A80 80 0 0 1 180 100" fill="none" stroke={colour} strokeWidth="14" strokeLinecap="round"
-        strokeDasharray={len} strokeDashoffset={len * (1 - pct)} style={{ transition: 'stroke-dashoffset .6s' }} />
+        strokeDasharray={len} strokeDashoffset={len * (1 - pct)} style={{ '--len': len, transition: 'stroke-dashoffset .6s' }} />
     </svg>
   )
 }
@@ -42,6 +42,29 @@ export function Arc({ value, max = 1000, colour = '#10B981' }) {
 export function Bar({ value, max, colour = 'var(--emerald)' }) {
   const pct = max > 0 ? Math.max(0, Math.min(100, (value / max) * 100)) : 0
   return <div className="bar"><div style={{ width: `${pct}%`, background: colour }} /></div>
+}
+
+// Animates a number from its previous value to `value` (instant under reduced motion).
+export function CountUp({ value, format = fmt, ms = 900 }) {
+  const [shown, setShown] = useState(0)
+  const from = useRef(0)
+  useEffect(() => {
+    const target = Number(value)
+    if (!Number.isFinite(target)) return
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) { from.current = target; setShown(target); return }
+    const start = from.current, t0 = performance.now()
+    let raf
+    const tick = (now) => {
+      const k = Math.min(1, (now - t0) / ms)
+      const v = start + (target - start) * (1 - Math.pow(1 - k, 3))
+      from.current = v
+      setShown(v)
+      if (k < 1) raf = requestAnimationFrame(tick)
+    }
+    raf = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(raf)
+  }, [value, ms])
+  return <>{value == null ? '–' : format(Math.round(shown))}</>
 }
 
 export function Spinner({ label = 'Loading…' }) {

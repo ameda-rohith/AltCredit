@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api } from '../api'
 import { useAuth } from '../auth'
-import { Arc, ErrorBox, Icon, Spinner, fmt, tierMeta, useLoad } from '../components/ui'
+import { Arc, CountUp, ErrorBox, Icon, Spinner, fmt, tierMeta, useLoad } from '../components/ui'
 
 const YN = [['0', 'No'], ['1', 'Yes']]
 const EDU = ["High School", "Diploma", "Bachelor's", "Master's", "PhD", "None"]
@@ -89,31 +89,31 @@ export default function Simulator() {
 
       <section className="sim-hero" aria-live="polite">
         <div>
-          <div className="label" style={{ color: '#94a3b8' }}>Current score</div>
-          <div className="row" style={{ gap: 16 }}><span className="big">{fmt(current)}</span>
+          <div className="label" style={{ color: 'var(--slate)' }}>Current score</div>
+          <div className="row" style={{ gap: 16 }}><span className="big"><CountUp value={current} /></span>
             {res && <span className={delta >= 0 ? 'pill-up' : 'pill-down'}>{delta >= 0 ? '+' : ''}{delta} pts</span>}</div>
-          <p style={{ marginTop: 12, color: '#94a3b8' }}>{score.risk_tier}</p>
+          <p style={{ marginTop: 12, color: 'var(--slate)' }}>{score.risk_tier}</p>
         </div>
         <div className="center">
-          <div className="label" style={{ color: '#4edea3' }}>● Projected score</div>
+          <div className="label" style={{ color: 'var(--emerald-dd)' }}>● Projected score</div>
           <Arc value={projected} colour={t.colour} />
-          <div style={{ position: 'relative' }}><span className="big" style={{ fontSize: 52 }}>{fmt(projected)}</span><small style={{ color: '#94a3b8' }}> / 1000</small></div>
-          <div className="chip" style={{ marginTop: 10, background: 'rgba(255,255,255,.1)', color: '#fff' }}>Tier: {res ? res.tier_after : score.risk_tier}</div>
+          <div style={{ position: 'relative' }}><span className="big" style={{ fontSize: 52 }}><CountUp value={projected} /></span><small style={{ color: 'var(--slate)' }}> / 1000</small></div>
+          <div className="chip" style={{ marginTop: 10 }}>Tier: {res ? res.tier_after : score.risk_tier}</div>
         </div>
         <div className="panel">
-          <div className="label" style={{ color: '#94a3b8', marginBottom: 6 }}>Factor contributions</div>
-          {!res && <small style={{ color: '#94a3b8' }}>Recalculate to see which factors move.</small>}
+          <div className="label" style={{ color: 'var(--slate)', marginBottom: 6 }}>Factor contributions</div>
+          {!res && <small style={{ color: 'var(--slate)' }}>Recalculate to see which factors move.</small>}
           {res?.factor_changes.map((c) => (
-            <div className="row between" key={c.key}><span>{c.factor}<br /><small style={{ color: '#94a3b8' }}>{c.value_before} → {c.value_after}</small></span>
+            <div className="row between" key={c.key}><span>{c.factor}<br /><small style={{ color: 'var(--slate)' }}>{c.value_before} → {c.value_after}</small></span>
               <span className={c.delta >= 0 ? 'pill-up' : 'pill-down'}>{c.delta >= 0 ? '+' : ''}{c.delta}</span></div>))}
-          {res && !res.factor_changes.length && <small style={{ color: '#94a3b8' }}>No factor crossed a scoring tier.</small>}
+          {res && !res.factor_changes.length && <small style={{ color: 'var(--slate)' }}>No factor crossed a scoring tier.</small>}
         </div>
       </section>
 
       {res && (res.cap_note || res.products_unlocked.length > 0 || res.products_revoked.length > 0) && (
         <section className="card">
           {res.products_unlocked.map((p) => <div key={p.product_id} className="row" style={{ color: 'var(--emerald-d)' }}><Icon name="lock_open" /> Unlocks {p.product_name}</div>)}
-          {res.products_revoked.map((p) => <div key={p.product_id} className="row" style={{ color: '#b91c1c' }}><Icon name="lock" /> Would revoke {p.product_name}</div>)}
+          {res.products_revoked.map((p) => <div key={p.product_id} className="row" style={{ color: 'var(--bad)' }}><Icon name="lock" /> Would revoke {p.product_name}</div>)}
           {res.cap_note && <div className="muted"><Icon name="info" /> {res.cap_note}</div>}
         </section>
       )}

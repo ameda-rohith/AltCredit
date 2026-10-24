@@ -1,7 +1,9 @@
+import { useLayoutEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../auth'
 import { Brand } from '../components/Layout'
 import { Bar, Icon, ScoreRing } from '../components/ui'
+import { ThemeToggle } from '../components/ThemeToggle'
 import './landing.css'
 
 const STEPS = [
@@ -32,10 +34,31 @@ const PILLARS = [
   { name: 'Repayment discipline', icon: 'history', items: ['On-time payment rate', 'Debt-to-income', 'Credit utilisation', 'Recent delinquency'] },
 ]
 
+// Scroll-reveal targets; staggered by position among siblings.
+const REVEAL = '.l-problem, .l-head, .l-step, .l-feature, #score .grid3 > .card, .l-band, .l-lenders, .l-cta'
+
+function useScrollReveal() {
+  useLayoutEffect(() => {
+    const els = [...document.querySelectorAll(`.landing :is(${REVEAL})`)]
+    if (!('IntersectionObserver' in window)) return
+    els.forEach((el) => {
+      const sibs = [...el.parentElement.children].filter((c) => c.matches(REVEAL))
+      el.style.setProperty('--d', `${sibs.indexOf(el) * 90}ms`)
+      el.classList.add('reveal')
+    })
+    const io = new IntersectionObserver((entries) => {
+      entries.forEach((e) => { if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target) } })
+    }, { threshold: 0.15, rootMargin: '0px 0px -40px 0px' })
+    els.forEach((el) => io.observe(el))
+    return () => io.disconnect()
+  }, [])
+}
+
 export default function Landing() {
   const { role, logout } = useAuth()
   const nav = useNavigate()
   const home = role === 'lender' ? '/lender' : '/dashboard'
+  useScrollReveal()
   return (
     <div className="landing">
       <header className="l-nav">
@@ -44,6 +67,7 @@ export default function Landing() {
           <a href="#how">How it works</a><a href="#features">Features</a><a href="#score">The score</a><a href="#lenders">For lenders</a>
         </nav>
         <div className="row">
+          <ThemeToggle />
           {role ? <>
             <button className="btn btn-ghost btn-sm" onClick={() => { logout(); nav('/login') }}>Sign out</button>
             <Link className="btn btn-primary btn-sm" to={home}>Open {role === 'lender' ? 'lender desk' : 'dashboard'}</Link>
@@ -67,13 +91,13 @@ export default function Landing() {
         </div>
 
         <aside className="l-sample card dark" aria-label="Sample score card">
-          <div className="row between"><span className="label" style={{ color: '#94a3b8' }}>Sample profile</span><span className="chip chip-blue">Near-Prime</span></div>
+          <div className="row between"><span className="label" style={{ color: 'var(--slate)' }}>Sample profile</span><span className="chip chip-blue">Near-Prime</span></div>
           <div className="row" style={{ gap: 20, margin: '18px 0' }}>
             <ScoreRing value={712} colour="#0284C7" size={104}><Icon name="verified" /></ScoreRing>
-            <div><div className="score-num" style={{ color: '#fff' }}>712<small style={{ color: '#94a3b8' }}>/1000</small></div><small style={{ color: '#94a3b8' }}>Estimated default risk 28.8%</small></div>
+            <div><div className="score-num">712<small style={{ color: 'var(--slate)' }}>/1000</small></div><small style={{ color: 'var(--slate)' }}>Risk indicator 28.8% (score-derived)</small></div>
           </div>
           {[['Lifestyle', 260, 350, '#10b981'], ['Spending', 210, 350, '#f59e0b'], ['Repayment', 400, 570, '#10b981']].map(([n, v, m, c]) => (
-            <div key={n} style={{ marginBottom: 10 }}><div className="row between"><small style={{ color: '#cbd5e1' }}>{n}</small><b>{v}</b></div><Bar value={v} max={m} colour={c} /></div>))}
+            <div key={n} style={{ marginBottom: 10 }}><div className="row between"><small style={{ color: 'var(--ink2)' }}>{n}</small><b>{v}</b></div><Bar value={v} max={m} colour={c} /></div>))}
           <div className="l-sample-note"><Icon name="lock_open" /> Unlocks Standard Credit Card</div>
         </aside>
       </section>
@@ -109,19 +133,20 @@ export default function Landing() {
         </div>
         <div className="l-bands">
           {BANDS.map((b) => (
-            <div key={b.name} className="card l-band" style={{ borderTop: `4px solid ${b.colour}` }}>
-              <b style={{ color: b.colour, fontFamily: 'var(--head)', fontSize: 18 }}>{b.name}</b><div className="l-range">{b.range}</div><small className="muted">{b.note}</small></div>))}
+            <div key={b.name} className="card l-band" style={{ '--c': b.colour }}>
+              <b style={{ fontFamily: 'var(--head)', fontSize: 18 }}>{b.name}</b><div className="l-range">{b.range}</div><small className="muted">{b.note}</small></div>))}
         </div>
       </section>
 
       <section id="lenders" className="l-section">
         <div className="card dark l-lenders">
-          <div><span className="label" style={{ color: '#4edea3' }}>For lenders</span><h2>Find creditworthy borrowers the bureaus miss</h2>
-            <p style={{ color: '#cbd5e1', margin: '10px 0 18px' }}>Search and filter anonymised candidates by score, default probability, income and debt ratio, review their risk profile, and push loan or card offers in bulk. Names stay hidden until a borrower says yes.</p>
-            <Link className="btn btn-primary" to="/login">Lender sign in <Icon name="arrow_forward" /></Link></div>
+          <span className="label" style={{ color: 'var(--emerald-dd)' }}>For lenders</span>
+          <h2>Find creditworthy borrowers the bureaus miss</h2>
+          <p>Search and filter anonymised candidates by score, risk indicator, income and debt ratio, review their risk profile, and push loan or card offers in bulk. Names stay hidden until a borrower says yes.</p>
           <ul className="checks l-lender-list">
-            {['Anonymised candidate pool', 'Score, PD, income and DTI filters', 'Bulk offer campaigns', 'Identity revealed only on acceptance'].map((t) => <li key={t}><Icon name="check_circle" />{t}</li>)}
+            {['Anonymised candidate pool', 'Score, risk, income and DTI filters', 'Bulk offer campaigns', 'Identity revealed only on acceptance'].map((t) => <li key={t}><Icon name="check_circle" />{t}</li>)}
           </ul>
+          <Link className="btn btn-primary btn-lg" to="/login">Lender sign in <Icon name="arrow_forward" /></Link>
         </div>
       </section>
 

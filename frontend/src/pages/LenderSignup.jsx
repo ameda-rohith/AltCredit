@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../auth'
 import { Brand } from '../components/Layout'
+import { ThemeToggle } from '../components/ThemeToggle'
 import { Icon } from '../components/ui'
 
 export default function LenderSignup() {
@@ -30,6 +31,7 @@ export default function LenderSignup() {
 
   return (
     <div className="auth">
+      <ThemeToggle className="theme-fab" />
       <form className="auth-card" onSubmit={submit}>
         <Link to="/" aria-label="ALTcredit home"><Brand /></Link>
         <h1>Register as a lender</h1>
@@ -44,7 +46,7 @@ export default function LenderSignup() {
           <input required type="password" autoComplete="new-password" value={f.confirm} onChange={set('confirm')} /></label>
         <label className="field"><span>Minimum ALTcredit score <small>0–1000</small></span>
           <input required type="number" min="0" max="1000" value={f.min_score} onChange={set('min_score')} /></label>
-        <label className="field"><span>Maximum default probability <small>%</small></span>
+        <label className="field"><span>Maximum risk indicator <small>% (score-derived)</small></span>
           <input required type="number" min="1" max="100" step="1" value={f.max_pd} onChange={set('max_pd')} /></label>
         {err && <div className="err" role="alert">{err}</div>}
         <button className="btn btn-primary" disabled={busy} style={{ padding: 16, fontSize: 17 }}>{busy ? 'Please wait…' : 'Create lender account'} <Icon name="arrow_forward" /></button>

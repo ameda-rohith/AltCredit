@@ -1,6 +1,7 @@
-import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom'
+import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../auth'
 import { Icon } from './ui'
+import { ThemeToggle } from './ThemeToggle'
 
 const NAV = [
   { to: '/dashboard', icon: 'dashboard', label: 'Dashboard', end: true },
@@ -20,6 +21,7 @@ export function Brand() {
 export default function Layout() {
   const { userId, logout } = useAuth()
   const nav = useNavigate()
+  const { pathname } = useLocation()
   return (
     <div className="shell">
       <aside className="sidebar">
@@ -38,11 +40,12 @@ export default function Layout() {
           <span className="topbar-title">ALTcredit Portal</span>
           <span className="chip chip-blue"><i className="dot" />Prototype Sandbox</span>
           <div className="who">
+            <ThemeToggle />
             <div><strong>{userId}</strong><small>Synthetic applicant</small></div>
             <span className="avatar"><Icon name="person" /></span>
           </div>
         </header>
-        <main className="content"><Outlet /></main>
+        <main className="content" key={pathname}><Outlet /></main>
         <nav className="bottom-nav">
           {NAV.map((n) => (
             <NavLink key={n.to} to={n.to} end={n.end} className={({ isActive }) => (isActive ? 'active' : '')}>

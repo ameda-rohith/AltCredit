@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../auth'
 import { Brand } from '../components/Layout'
+import { ThemeToggle } from '../components/ThemeToggle'
 import { Icon } from '../components/ui'
 
 const DEMO = { user: { username: 'USR_002', password: 'altcredit-demo', label: 'USR_002 (Near-Prime)' },
@@ -27,6 +28,7 @@ export default function SignIn() {
 
   return (
     <div className="auth">
+      <ThemeToggle className="theme-fab" />
       <form className="auth-card" onSubmit={submit}>
         <Link to="/" aria-label="ALTcredit home"><Brand /></Link>
         {current && <div className="su-note" role="status"><Icon name="info" /><span>You're signed in as <b>{current === 'lender' ? 'a lender' : userId}</b>. <Link className="link" to={current === 'lender' ? '/lender' : '/dashboard'}>Continue</Link> or sign in below to switch account.</span></div>}

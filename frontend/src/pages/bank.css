@@ -1,0 +1,83 @@
+/* Partner-bank pages. Deliberately independent of the ALTcredit theme: each bank is its own "site",
+   always light, with its own palette and header conventions. */
+.bank-page { color-scheme: light; --p: #1573b8; --pd: #0a4a82; --pl: #e8f3fb; --ac: #1573b8; --bg2: #f3f5f8; --ink: #1f2933; --mut: #5b6770; --line: #d7dde3; --radius: 2px;
+  min-height: 100vh; display: flex; flex-direction: column; background: var(--bg2); color: var(--ink); font: 15px/22px Arial, 'Helvetica Neue', sans-serif; }
+.bank-page h1, .bank-page h2 { color: inherit; font-family: inherit; letter-spacing: 0; margin: 0; }
+.bank-page * { text-shadow: none; }
+.bk-wrap { width: 100%; max-width: 1120px; margin-inline: auto; padding-inline: 24px; }
+.bk-top .bk-wrap, .bk-util .bk-wrap, .bk-bar .bk-wrap { display: flex; align-items: center; gap: 24px; }
+.bk-logo { display: flex; align-items: center; gap: 12px; } .bk-logo b { display: block; font-size: 20px; line-height: 24px; } .bk-logo small { display: block; font-size: 12px; opacity: .75; }
+.bk-mark { width: 40px; height: 40px; flex: none; color: var(--p); display: inline-block; } .bk-mark svg { width: 100%; height: 100%; display: block; }
+.bk-nav { display: flex; gap: 26px; } .bk-nav span { font-weight: 600; }
+.bk-secure { margin-left: auto; display: inline-flex; align-items: center; gap: 6px; font-size: 13px; } .bk-secure .material-symbols-outlined { font-size: 16px; }
+.bk-refer { background: #fff8e1; border-bottom: 1px solid #f0dfa0; color: #6b5200; font-size: 13px; padding-block: 9px; } .bk-refer .bk-wrap { display: flex; gap: 8px; align-items: center; } .bk-refer .material-symbols-outlined { font-size: 18px; flex: none; }
+.bk-hero p { opacity: .85; margin-top: 6px; } .bk-crumb { font-size: 12px; opacity: .8; display: block; margin-bottom: 8px; }
+.bk-body { padding-block: 32px 56px; flex: 1; }
+.bk-grid { display: grid; grid-template-columns: 1.3fr 1fr; gap: 24px; align-items: start; }
+.bk-card { background: #fff; border: 1px solid var(--line); border-radius: var(--radius); padding: 28px; }
+.bk-card h2 { font-size: 20px; margin-bottom: 16px; color: var(--pd); }
+.bk-dl { margin: 0; display: grid; } .bk-dl > div { display: flex; justify-content: space-between; gap: 16px; padding: 12px 0; border-top: 1px solid var(--line); } .bk-dl > div:first-child { border-top: 0; }
+.bk-dl dt { color: var(--mut); } .bk-dl dd { margin: 0; font-weight: 700; text-align: right; } .bk-big { font-size: 22px; color: var(--pd); } .bk-ref { font-family: ui-monospace, Menlo, monospace; letter-spacing: .04em; }
+.bk-note { color: var(--mut); font-size: 14px; margin-bottom: 16px; }
+.bk-check { display: flex; gap: 10px; align-items: flex-start; font-size: 14px; margin-bottom: 20px; cursor: pointer; }
+.bank-page input[type=checkbox] { appearance: auto; -webkit-appearance: checkbox; width: 18px; height: 18px; margin: 2px 0 0; border-radius: 0; background: none; box-shadow: none; accent-color: var(--p); }
+.bk-actions { display: flex; flex-direction: column; gap: 12px; align-items: stretch; }
+.bk-btn { border: 0; background: var(--p); color: #fff; font: 700 15px Arial, sans-serif; padding: 13px 28px; border-radius: var(--radius); cursor: pointer; transition: background .2s, transform .15s, box-shadow .2s; }
+.bk-btn:hover:not(:disabled) { background: var(--pd); transform: translateY(-1px); box-shadow: 0 6px 14px rgba(0, 0, 0, .18); }
+.bk-btn:disabled { opacity: .45; cursor: not-allowed; }
+.bk-link { border: 0; background: none; color: var(--p); font: 600 14px Arial, sans-serif; cursor: pointer; padding: 6px; text-decoration: underline; }
+.bk-foot { background: #fff; border-top: 1px solid var(--line); color: var(--mut); font-size: 12px; padding-block: 20px; }
+.bk-badge { font-size: 0; margin-bottom: 8px; } .bk-badge .material-symbols-outlined { font-size: 52px; }
+.bk-result { max-width: 640px; margin-inline: auto; text-align: center; } .bk-result.ok .bk-badge { color: #1e8e3e; } .bk-result.no .bk-badge { color: #c62828; }
+.bk-result h2 { margin-bottom: 6px; } .bk-result p { color: var(--mut); margin-bottom: 18px; } .bk-result .bk-dl { text-align: left; margin-bottom: 22px; }
+.bk-proc { max-width: 640px; margin-inline: auto; } .bk-proc ol { list-style: none; margin: 0 0 22px; padding: 0; display: grid; gap: 14px; }
+.bk-proc li { display: flex; gap: 12px; align-items: center; color: var(--mut); transition: color .3s; } .bk-proc li.now { color: var(--ink); font-weight: 700; } .bk-proc li.done { color: #1e8e3e; }
+.bk-tick { width: 26px; height: 26px; border-radius: 50%; border: 2px solid var(--line); display: grid; place-items: center; flex: none; transition: all .3s; } .bk-tick .material-symbols-outlined { font-size: 16px; }
+.bk-tick i { width: 8px; height: 8px; border-radius: 50%; background: currentColor; opacity: .5; } .now .bk-tick { border-color: var(--p); color: var(--p); } .now .bk-tick i { animation: bk-pulse 1s ease-in-out infinite; } .done .bk-tick { background: #1e8e3e; border-color: #1e8e3e; color: #fff; }
+.bk-loadbar { height: 6px; border-radius: 99px; background: var(--line); overflow: hidden; } .bk-loadbar div { height: 100%; width: 40%; background: var(--p); border-radius: inherit; animation: bk-load 1.4s ease-in-out infinite; }
+
+/* entrance motion */
+.bank-page .bk-hero .bk-wrap > * { animation: m-up .55s cubic-bezier(.2, .7, .2, 1) backwards; } .bank-page .bk-hero .bk-wrap > :nth-child(2) { animation-delay: .07s; } .bank-page .bk-hero .bk-wrap > :nth-child(3) { animation-delay: .14s; }
+.bank-page .bk-card { animation: m-up .6s cubic-bezier(.2, .7, .2, 1) .12s backwards; } .bank-page .bk-grid > :nth-child(2) { animation-delay: .2s; }
+.bank-page header { animation: m-down .45s ease backwards; }
+.bk-result .bk-badge { animation: m-pop .6s cubic-bezier(.2, .7, .2, 1) .25s backwards; }
+@keyframes bk-load { 0% { transform: translateX(-100%); } 100% { transform: translateX(260%); } }
+@keyframes bk-pulse { 50% { transform: scale(1.7); opacity: 1; } }
+
+/* ---- redirect interstitial (ALTcredit-themed) ---- */
+.bk-redirect { text-align: center; align-items: center; } .bk-redirect h1 { font-size: 24px; } .bk-redirect > p { max-width: 380px; font-size: 14px; }
+.bk-hand { display: flex; align-items: center; gap: 8px; margin: 6px 0; }
+.bk-hand-a, .bk-hand-b { width: 62px; height: 62px; border-radius: 50%; display: grid; place-items: center; background: var(--bg); box-shadow: var(--raise-sm); color: var(--emerald-dd); }
+.bk-hand-b { background: #fff; } .bk-hand-b .bk-mark { width: 34px; height: 34px; }
+.bk-hand i { width: 8px; height: 8px; border-radius: 50%; background: var(--emerald); animation: bk-dots 1.2s ease-in-out infinite; } .bk-hand i:nth-of-type(2) { animation-delay: .2s; } .bk-hand i:nth-of-type(3) { animation-delay: .4s; }
+@keyframes bk-dots { 0%, 100% { opacity: .2; transform: scale(.7); } 50% { opacity: 1; transform: scale(1.2); } }
+.bk-redirect .bk-loadbar { width: 100%; background: var(--track); } .bk-redirect .bk-loadbar div { background: var(--emerald); }
+.bk-redirect .bk-hand-b.bk-sentinel .bk-mark { color: #1573b8; } .bk-redirect .bk-hand-b.bk-pinnacle .bk-mark { color: #004b8d; } .bk-redirect .bk-hand-b.bk-rosewood .bk-mark { color: #97144d; }
+
+/* ---- Sentinel State Bank: public-sector style — utility strip, white header, blue nav band, square edges ---- */
+.bk-sentinel { --p: #1573b8; --pd: #0a4a82; --radius: 0; --bg2: #eef2f6; }
+.bk-sentinel .bk-util { background: #f1f1f1; border-bottom: 1px solid #ddd; font-size: 12px; color: #555; padding-block: 6px; } .bk-sentinel .bk-util .bk-wrap { justify-content: space-between; }
+.bk-sentinel .bk-top { background: #fff; padding-block: 14px; } .bk-sentinel .bk-logo b { color: var(--pd); font-size: 22px; } .bk-sentinel .bk-logo small { color: var(--mut); } .bk-sentinel .bk-secure { color: #1e8e3e; font-weight: 700; }
+.bk-sentinel .bk-bar { background: linear-gradient(#1a80c9, #0f62a5); color: #fff; } .bk-sentinel .bk-nav { gap: 0; } .bk-sentinel .bk-nav span { padding: 13px 22px; border-right: 1px solid rgba(255, 255, 255, .22); font-size: 14px; } .bk-sentinel .bk-nav span:first-child { background: rgba(0, 0, 0, .15); }
+.bk-sentinel .bk-hero { background: var(--pl); border-bottom: 3px solid var(--p); padding-block: 26px; } .bk-sentinel .bk-hero h1 { font-size: 28px; color: var(--pd); } .bk-sentinel .bk-hero p, .bk-sentinel .bk-crumb { color: #3b5a73; }
+.bk-sentinel .bk-card { border-top: 3px solid var(--p); box-shadow: 0 1px 2px rgba(0, 0, 0, .06); } .bk-sentinel .bk-btn { text-transform: uppercase; letter-spacing: .08em; padding-block: 12px; }
+
+/* ---- Pinnacle Bank: private-sector style — deep navy header, red accent, clean white panels ---- */
+.bk-pinnacle { --p: #004b8d; --pd: #00386a; --ac: #e1251b; --pl: #eaf1f9; --radius: 6px; --bg2: #f1f5fa; }
+.bk-pinnacle .bk-top { background: var(--p); color: #fff; padding-block: 14px; border-bottom: 4px solid var(--ac); } .bk-pinnacle .bk-mark { color: #fff; } .bk-pinnacle .bk-nav { margin-left: 28px; } .bk-pinnacle .bk-nav span { font-weight: 500; font-size: 14px; opacity: .92; }
+.bk-pinnacle .bk-secure { background: rgba(255, 255, 255, .12); padding: 5px 12px; border-radius: 99px; }
+.bk-pinnacle .bk-hero { background: #fff; border-bottom: 1px solid var(--line); padding-block: 28px; } .bk-pinnacle .bk-hero h1 { font-size: 30px; color: var(--p); position: relative; padding-bottom: 12px; } .bk-pinnacle .bk-hero h1::after { content: ''; position: absolute; left: 0; bottom: 0; width: 56px; height: 4px; background: var(--ac); border-radius: 2px; }
+.bk-pinnacle .bk-hero p, .bk-pinnacle .bk-crumb { color: var(--mut); }
+.bk-pinnacle .bk-card { border-radius: 8px; box-shadow: 0 2px 10px rgba(0, 56, 106, .08); border: 0; } .bk-pinnacle .bk-btn { background: var(--ac); border-radius: 4px; } .bk-pinnacle .bk-btn:hover:not(:disabled) { background: #b81c14; }
+.bk-pinnacle .bk-link { color: var(--p); } .bk-pinnacle .bk-big { color: var(--ac); } .bk-pinnacle .bk-loadbar div { background: var(--ac); }
+
+/* ---- Rosewood Bank: modern private-sector style — burgundy gradient hero, cards overlapping it, pill buttons ---- */
+.bk-rosewood { --p: #97144d; --pd: #6d0e38; --ac: #d4a24e; --pl: #fbeef3; --radius: 14px; --bg2: #f7f2f4; }
+.bk-rosewood .bk-top { background: #fff; padding-block: 14px; border-bottom: 1px solid var(--line); } .bk-rosewood .bk-logo b { color: var(--p); letter-spacing: .02em; } .bk-rosewood .bk-logo small { color: var(--mut); } .bk-rosewood .bk-nav { margin-left: 26px; } .bk-rosewood .bk-nav span { color: var(--ink); font-weight: 500; font-size: 14px; }
+.bk-rosewood .bk-secure { color: var(--p); font-weight: 600; }
+.bk-rosewood .bk-hero { background: radial-gradient(circle at 85% 20%, rgba(212, 162, 78, .35), transparent 38%), linear-gradient(120deg, #5c0b31, #97144d 60%, #b8205e); color: #fff; padding-block: 40px 76px; } .bk-rosewood .bk-hero h1 { font-size: 34px; font-weight: 600; } .bk-rosewood .bk-crumb { color: #f3d3e0; }
+.bk-rosewood .bk-body { margin-top: -48px; padding-top: 0; } .bk-rosewood .bk-card { border: 0; border-radius: 18px; box-shadow: 0 12px 32px rgba(92, 11, 49, .16); }
+.bk-rosewood .bk-card h2 { color: var(--p); } .bk-rosewood .bk-btn { border-radius: 999px; background: linear-gradient(120deg, #97144d, #b8205e); padding-block: 14px; } .bk-rosewood .bk-btn:hover:not(:disabled) { background: linear-gradient(120deg, #6d0e38, #97144d); }
+.bk-rosewood .bk-big { color: var(--p); } .bk-rosewood .bk-loadbar div { background: var(--p); } .bk-rosewood .bk-refer { background: #fdf4e3; }
+
+@media (max-width: 860px) { .bk-grid { grid-template-columns: 1fr; } .bk-nav { display: none; } .bk-sentinel .bk-util .bk-wrap span:last-child { display: none; } .bk-wrap { padding-inline: 16px; } .bk-card { padding: 20px; } .bk-rosewood .bk-hero h1 { font-size: 26px; } }
