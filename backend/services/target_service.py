@@ -95,9 +95,7 @@ def _candidates(feature: str, profile: dict[str, Any]) -> list[float]:
         if threshold in (float("inf"), 0) and not lever["up"]:
             continue
         values.append(
-            threshold * profile["monthly_income"]
-            if feature == "monthly_spend"
-            else threshold
+            threshold * profile["monthly_income"] if feature == "monthly_spend" else threshold
         )
     return values
 
@@ -117,9 +115,7 @@ def _fmt(feature: str, value: float) -> str:
     return f"{value:.0f} {'days' if feature == 'savings_days' else 'months'}"
 
 
-def plan_for_target(
-    raw: dict[str, Any], target_score: float, max_steps: int = 9
-) -> dict[str, Any]:
+def plan_for_target(raw: dict[str, Any], target_score: float, max_steps: int = 9) -> dict[str, Any]:
     profile, _ = data_parser.normalise_profile(raw)
     current = user_service.score(raw, with_details=False)["credit_score"]
     steps: list[dict[str, Any]] = []
@@ -137,15 +133,11 @@ def plan_for_target(
                 if not improves:
                     continue
                 trial = {**profile, feature: cand}
-                gain = (
-                    user_service.score(trial, with_details=False)["credit_score"]
-                    - score
-                )
+                gain = user_service.score(trial, with_details=False)["credit_score"] - score
                 if gain <= 0:
                     continue
                 effort = abs(cand - old) / (
-                    lever["span"]
-                    * (profile["monthly_income"] if feature == "monthly_spend" else 1)
+                    lever["span"] * (profile["monthly_income"] if feature == "monthly_spend" else 1)
                 )
                 options.append((effort, feature, old, cand, gain))
         if not options:
@@ -154,9 +146,7 @@ def plan_for_target(
         # otherwise the most points per unit of effort
         finishers = [o for o in options if o[4] >= target_score - score]
         effort, feature, old, cand, gain = (
-            min(finishers)
-            if finishers
-            else max(options, key=lambda o: o[4] / max(o[0], 1e-6))
+            min(finishers) if finishers else max(options, key=lambda o: o[4] / max(o[0], 1e-6))
         )
         profile[feature] = cand
         used.add(feature)
@@ -170,13 +160,14 @@ def plan_for_target(
                 "to": _fmt(feature, cand),
                 "points_gain": gain,
                 "advice": lever["advice"],
-                "action": f"{'Raise' if lever['up'] else 'Reduce'} {lever['label']} from {_fmt(feature, old)} to {_fmt(feature, cand)}.",
+                "action": (
+                    f"{'Raise' if lever['up'] else 'Reduce'} {lever['label']} "
+                    f"from {_fmt(feature, old)} to {_fmt(feature, cand)}."
+                ),
             }
         )
 
-    achieved = user_service.score({**raw, **profile}, with_details=False)[
-        "credit_score"
-    ]
+    achieved = user_service.score({**raw, **profile}, with_details=False)["credit_score"]
     reachable = achieved >= target_score
     summary = (
         "Already eligible - no change needed."
@@ -184,7 +175,10 @@ def plan_for_target(
         else f"Reach {target_score:.0f} with {len(steps)} change(s): "
         + "; ".join(s["action"] for s in steps)
         if reachable
-        else f"Even with every supported improvement the projected score is {achieved:.0f}, short of {target_score:.0f}."
+        else (
+            f"Even with every supported improvement the projected score is {achieved:.0f}, "
+            f"short of {target_score:.0f}."
+        )
     )
     return {
         "current_score": current,

@@ -1,6 +1,6 @@
 """Embedded SQLite via SQLAlchemy 2.0."""
 
-from sqlalchemy import create_engine, inspect, text
+from sqlalchemy import create_engine, event, inspect, text
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
 
 from core.config import settings
@@ -16,6 +16,16 @@ _kwargs = (
     else {}
 )
 engine = create_engine(settings.database_url, **_kwargs)
+if settings.database_url.startswith("sqlite"):
+
+    @event.listens_for(engine, "connect")
+    def _enforce_foreign_keys(dbapi_connection, _record):
+        """SQLite ignores FOREIGN KEY constraints unless asked, per connection."""
+        cursor = dbapi_connection.cursor()
+        cursor.execute("PRAGMA foreign_keys=ON")
+        cursor.close()
+
+
 SessionLocal = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
 
 
@@ -35,7 +45,7 @@ def init_db() -> None:
 
 
 def _add_missing_columns() -> None:
-    """create_all skips tables that already exist; add new (nullable) columns to an older database file."""
+    """create_all skips existing tables; add new (nullable) columns to an older database file."""
     insp = inspect(engine)
     with engine.begin() as conn:
         for table in Base.metadata.sorted_tables:

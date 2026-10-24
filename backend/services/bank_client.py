@@ -11,9 +11,7 @@ class BankUnavailable(Exception):
 
 def get_client() -> httpx.Client:
     """Overridable in tests to point at an in-process bank app."""
-    return httpx.Client(
-        base_url=settings.bank_api_url, timeout=settings.bank_timeout_seconds
-    )
+    return httpx.Client(base_url=settings.bank_api_url, timeout=settings.bank_timeout_seconds)
 
 
 def request_preapproval(payload: dict) -> dict:
@@ -28,4 +26,10 @@ def request_preapproval(payload: dict) -> dict:
         raise BankUnavailable("bank service is unreachable") from exc
     if resp.status_code != 200:
         raise BankUnavailable(f"bank service returned {resp.status_code}")
-    return resp.json()
+    try:
+        data = resp.json()
+    except ValueError as exc:
+        raise BankUnavailable("bank service returned an unreadable response") from exc
+    if not isinstance(data, dict) or data.get("status") not in ("APPROVED", "DECLINED"):
+        raise BankUnavailable("bank service returned an unexpected response")
+    return data

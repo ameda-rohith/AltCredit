@@ -1,7 +1,6 @@
 """Factor analysis: turns the rule engine output into human-readable explanations."""
 
-from typing import Any, Dict
-
+from typing import Any
 
 # ============================================================
 # HUMAN-READABLE FACTOR NAMES
@@ -52,13 +51,17 @@ PILLAR_NAMES = {
 # ============================================================
 
 
-def get_contribution_type(score: float, max_score: float) -> str:
+def is_penalty(max_score: float) -> bool:
+    """Penalty factors (risk flags) have a negative ceiling: 0 means nothing was deducted."""
+    return max_score <= 0
 
+
+def get_contribution_type(score: float, max_score: float) -> str:
     if score < 0:
         return "negative"
 
     if score == 0:
-        return "weak"
+        return "strong" if is_penalty(max_score) else "weak"
 
     if max_score > 0 and score >= max_score:
         return "strong"
@@ -71,9 +74,7 @@ def get_contribution_type(score: float, max_score: float) -> str:
 # ============================================================
 
 
-def generate_factor_explanation(
-    factor_key: str, factor_data: Dict[str, Any]
-) -> Dict[str, Any]:
+def generate_factor_explanation(factor_key: str, factor_data: dict[str, Any]) -> dict[str, Any]:
 
     score = factor_data["score"]
     max_score = factor_data["max"]
@@ -90,9 +91,7 @@ def generate_factor_explanation(
 
     if score > 0:
         explanation = (
-            f"{factor_name} contributed "
-            f"+{score} points. "
-            f"Observed value: {factor_data['val']}."
+            f"{factor_name} contributed +{score} points. Observed value: {factor_data['val']}."
         )
 
     elif score < 0:
@@ -102,10 +101,11 @@ def generate_factor_explanation(
             f"Observed value: {factor_data['val']}."
         )
 
+    elif is_penalty(max_score):
+        explanation = f"No penalty applied for {factor_name}. Observed value: {factor_data['val']}."
+
     else:
-        explanation = (
-            f"{factor_name} contributed 0 points. Observed value: {factor_data['val']}."
-        )
+        explanation = f"{factor_name} contributed 0 points. Observed value: {factor_data['val']}."
 
     return {
         "factor_key": factor_key,
@@ -124,7 +124,7 @@ def generate_factor_explanation(
 # ============================================================
 
 
-def build_explanation(evaluation: Dict[str, Any]) -> Dict[str, Any]:
+def build_explanation(evaluation: dict[str, Any]) -> dict[str, Any]:
 
     subfactors = evaluation["subfactor_breakdown"]
 
@@ -155,7 +155,10 @@ def build_explanation(evaluation: Dict[str, Any]) -> Dict[str, Any]:
     # Weak / zero factors
     # --------------------------------------------------------
 
-    weak_factors = [factor for factor in factors if factor["score"] == 0]
+    # a penalty factor sitting at 0 is the best outcome, not something to improve
+    weak_factors = [
+        factor for factor in factors if factor["score"] == 0 and not is_penalty(factor["max_score"])
+    ]
 
     # --------------------------------------------------------
     # Top contributors
@@ -171,9 +174,7 @@ def build_explanation(evaluation: Dict[str, Any]) -> Dict[str, Any]:
 
     for factor in factors:
         if positive_total > 0 and factor["score"] > 0:
-            factor["contribution_percentage"] = round(
-                (factor["score"] / positive_total) * 100, 2
-            )
+            factor["contribution_percentage"] = round((factor["score"] / positive_total) * 100, 2)
 
         else:
             factor["contribution_percentage"] = 0

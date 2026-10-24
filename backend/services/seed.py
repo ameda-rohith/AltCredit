@@ -18,8 +18,12 @@ PROFILE_SKIP = {"user_id", "applicant_id", "match_cost"}
 
 
 def _demographics(row: dict) -> dict:
-    return {"age": row.get("age"), "city_tier": row.get("city_tier"),
-            "employment_status": row.get("employment_status"), "education_level": row.get("education_level")}
+    return {
+        "age": row.get("age"),
+        "city_tier": row.get("city_tier"),
+        "employment_status": row.get("employment_status"),
+        "education_level": row.get("education_level"),
+    }
 
 
 def _backfill_demographics(db: Session) -> None:
@@ -33,6 +37,15 @@ def _backfill_demographics(db: Session) -> None:
             for k, v in _demographics(rows[user.user_id]).items():
                 setattr(user, k, v)
     db.commit()
+
+
+def _backfill_consent(db: Session) -> None:
+    """Rows created before the consent column existed were already in the pool: keep them there."""
+    legacy = db.scalars(select(models.User).where(models.User.share_with_lenders.is_(None))).all()
+    for user in legacy:
+        user.share_with_lenders = True
+    if legacy:
+        db.commit()
 
 
 def seed(db: Session) -> None:
@@ -55,6 +68,7 @@ def seed(db: Session) -> None:
 
     if db.scalar(select(func.count()).select_from(models.User)):
         _backfill_demographics(db)
+        _backfill_consent(db)
         return
     users = data_parser.load_merged_users()
     anon_ids: set[str] = set()
@@ -65,12 +79,11 @@ def seed(db: Session) -> None:
             full_name=f"Synthetic {row['user_id']}",
             email=f"{row['user_id'].lower()}@example.test",
             password_hash=password_hash,
+            share_with_lenders=True,  # the demo pool must be visible to the demo lenders
             **_demographics(row),
         )
         db.add(user)
         db.flush()
         profile = {k: v for k, v in row.items() if k not in PROFILE_SKIP}
-        user_service.record_scoring(
-            db, user, profile, known_anon_ids=anon_ids, commit=False
-        )
+        user_service.record_scoring(db, user, profile, known_anon_ids=anon_ids, commit=False)
     db.commit()

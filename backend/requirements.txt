@@ -34,7 +34,6 @@ joblib==1.4.2
 reportlab==4.2.5
 
 # ==============================
-# Testing
+# HTTP client (partner bank + LLM explainer)
 # ==============================
-pytest==8.3.4
 httpx==0.28.1

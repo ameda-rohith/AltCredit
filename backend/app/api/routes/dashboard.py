@@ -1,20 +1,18 @@
-from core.database import get_db
 from fastapi import APIRouter, Depends
-from services import report_service, user_service
-from services.rule_engine import c as ml_config
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app import models
 from app.api.dependencies import existing_user
+from core.database import get_db
+from services import report_service, user_service
+from services.rule_engine import c as ml_config
 
 router = APIRouter(prefix="/dashboard", tags=["dashboard"])
 
 
 @router.get("/{user_id}")
-def dashboard(
-    user: models.User = Depends(existing_user), db: Session = Depends(get_db)
-):
+def dashboard(user: models.User = Depends(existing_user), db: Session = Depends(get_db)):
     """Everything the user-mode dashboard needs in a single call."""
     result = user_service.score_user(db, user)
     expl = result["explanation"]
@@ -37,6 +35,7 @@ def dashboard(
             "max": result["max_score"],
             "risk_tier": result["risk_tier"],
             "predicted_pd": result["predicted_pd"],
+            "pd_basis": result["pd_basis"],
             "decision": verdict,
             "decision_reason": why,
         },
@@ -58,6 +57,7 @@ def dashboard(
         },
         "history": user_service.score_history(db, user.user_id),
         "has_pending_offers": pending is not None,
+        "share_with_lenders": bool(user.share_with_lenders),
         "data_completeness": result["data_completeness"],
         "missing_fields": result["missing_fields"],
     }

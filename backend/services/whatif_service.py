@@ -1,4 +1,4 @@
-"""What-if simulator: apply feature edits to a copy of the profile and re-score with the real engine."""
+"""What-if simulator: apply feature edits to a profile copy and re-score with the real engine."""
 
 from typing import Any
 
@@ -23,7 +23,7 @@ def simulate(
     changes: dict[str, Any] | None = None,
     deltas: dict[str, float] | None = None,
 ) -> dict[str, Any]:
-    """`changes` set absolute values, `deltas` add to the current value. The stored profile is untouched."""
+    """`changes` set absolute values, `deltas` add to the current value; profile is untouched."""
     base_profile, _ = data_parser.normalise_profile(base_raw)
     profile = apply_changes(base_profile, changes, deltas)
 
@@ -66,10 +66,6 @@ def simulate(
         if capped
         else None,
         "factor_changes": factor_changes,
-        "products_unlocked": [
-            {"product_id": i, "product_name": names[i]} for i in unlocked
-        ],
-        "products_revoked": [
-            {"product_id": i, "product_name": names[i]} for i in revoked
-        ],
+        "products_unlocked": [{"product_id": i, "product_name": names[i]} for i in unlocked],
+        "products_revoked": [{"product_id": i, "product_name": names[i]} for i in revoked],
     }

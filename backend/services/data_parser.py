@@ -12,6 +12,7 @@ import json
 from typing import Any
 
 import pandas as pd
+
 from core.config import settings
 
 # feature -> (default when unknown, lower bound, upper bound)
@@ -46,6 +47,66 @@ DEMOGRAPHIC_KEYS = (
     "monthly_income",
     "city_tier",
 )
+
+# API-facing sanity bounds (the engine clamps to NUMERIC_FEATURES either way; these reject
+# nonsense such as a 1e12 income or a 100-year job tenure before it is stored).
+INPUT_LIMITS: dict[str, tuple[float, float]] = {
+    "months_at_job": (0, 1200),
+    "rent_on_time_months": (0, 1200),
+    "digital_payment_rate": (0, 1),
+    "monthly_income": (0, 10_000_000),
+    "monthly_spend": (0, 10_000_000),
+    "essential_pct": (0, 1),
+    "cashflow_volatility": (0, 10),
+    "savings_days": (0, 36_500),
+    "on_time_rate": (0, 1),
+    "dti": (0, 10),
+    "credit_util": (0, 10),
+    "delinq_90plus": (0, 1),
+    "delinq_60plus": (0, 1),
+    "delinq_30plus": (0, 1),
+    "positive_habits": (0, 100),
+    "risk_flags": (0, 100),
+}
+NUMERIC_KEYS = frozenset(INPUT_LIMITS)
+DELINQUENCY_KEYS = ("delinq_90plus", "delinq_60plus", "delinq_30plus")
+HOUSING_VALUES = ("owner", "rent", "none")
+
+# What the portals offer, plus the spellings the engine's substring rules already understood.
+EDUCATION_LEVELS = (
+    "None",
+    "Below high school",
+    "High School",
+    "Certificate",
+    "Diploma",
+    "Bachelor's",
+    "Master's",
+    "PhD",
+)
+_EDUCATION_ALIASES = {
+    "none": "None",
+    "below high school": "Below high school",
+    "high school": "High School",
+    "highschool": "High School",
+    "certificate": "Certificate",
+    "cert": "Certificate",
+    "diploma": "Diploma",
+    "bachelor": "Bachelor's",
+    "bachelors": "Bachelor's",
+    "bachelor's": "Bachelor's",
+    "master": "Master's",
+    "masters": "Master's",
+    "master's": "Master's",
+    "phd": "PhD",
+    "doctorate": "PhD",
+}
+
+
+def canonical_education(value: Any) -> str | None:
+    """The canonical education label for a user-supplied value, or None if unrecognised."""
+    key = " ".join(str(value).replace("\u2019", "'").lower().split())
+    return _EDUCATION_ALIASES.get(key)
+
 
 ESSENTIAL_CATEGORIES = {
     "food",
@@ -83,6 +144,10 @@ def normalise_profile(raw: dict[str, Any]) -> tuple[dict[str, Any], list[str]]:
             value = min(high, value)
         profile[key] = value
 
+    # a delinquency flag is a yes/no fact: any positive value means "yes", never "clean"
+    for key in DELINQUENCY_KEYS:
+        profile[key] = 1 if profile[key] > 0 else 0
+
     spend = _num(raw.get("monthly_spend"))
     if spend is None:
         missing.append("monthly_spend")
@@ -103,6 +168,20 @@ def normalise_profile(raw: dict[str, Any]) -> tuple[dict[str, Any], list[str]]:
     profile.setdefault("user_id", None)
     profile.setdefault("applicant_id", None)
     return profile, missing
+
+
+def keep_recorded_delinquencies(profile: dict[str, Any], derived: dict[str, Any]) -> dict[str, Any]:
+    """A statement can reveal a late payment but cannot erase one already on file.
+
+    The feed has no days-late column, so derived delinquency flags only ever say "a late payment
+    was seen"; a clean statement must not overwrite a recorded delinquency with 0.
+    """
+    out = dict(derived)
+    for key in DELINQUENCY_KEYS:
+        if key in out:
+            recorded = _num(profile.get(key)) or 0
+            out[key] = max(int(out[key]), 1 if recorded > 0 else 0)
+    return out
 
 
 def data_completeness(missing: list[str]) -> float:
@@ -183,9 +262,7 @@ def features_from_transactions(
     debits = df[df["type"] == "DEBIT"]
     credits = df[df["type"] == "CREDIT"]
 
-    income = monthly_income or (
-        credits["amount"].sum() / months if len(credits) else None
-    )
+    income = monthly_income or (credits["amount"].sum() / months if len(credits) else None)
     if income:
         out["monthly_income"] = round(float(income), 2)
 
@@ -204,9 +281,7 @@ def features_from_transactions(
         out["on_time_rate"] = round(float((bills["status"] != "late").mean()), 3)
         util = bills[bills["category"].isin({"utility bill", "utility"})]
         if len(util):
-            out["digital_payment_rate"] = round(
-                float((util["status"] != "late").mean()), 3
-            )
+            out["digital_payment_rate"] = round(float((util["status"] != "late").mean()), 3)
         rent = bills[(bills["category"] == "rent") & (bills["status"] != "late")]
         if len(rent):
             out["housing"] = "rent"

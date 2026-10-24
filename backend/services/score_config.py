@@ -30,7 +30,9 @@ DIGITAL_FOOTPRINT_CONFIG = {
 }
 
 EDUCATION_LEVEL_CONFIG = {
+    # Matched by substring in order, so more specific labels must come first.
     "mapping": {
+        "below high school": 0,
         "phd": 50,
         "master": 50,
         "bachelor": 40,

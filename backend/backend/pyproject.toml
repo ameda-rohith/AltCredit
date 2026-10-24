@@ -1,0 +1,24 @@
+[project]
+name = "altcredit-backend"
+version = "0.1.0"
+description = "AltCredit API: rule-based alternative credit scoring, product matching and lender portal"
+readme = "README.md"
+requires-python = ">=3.13"
+# Runtime dependencies are pinned in requirements.txt (dev tools in requirements-dev.txt).
+dependencies = []
+
+[tool.ruff]
+line-length = 100
+target-version = "py313"
+extend-exclude = [".venv"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]
+# B008: FastAPI's Depends()/Query()/File() in argument defaults is the framework idiom.
+ignore = ["B008"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["app", "core", "services", "bank_mock"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

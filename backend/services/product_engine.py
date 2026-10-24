@@ -1,21 +1,18 @@
 """Product matching: which catalog products a score qualifies for."""
 
-from typing import Any, Dict, List
-
+from typing import Any
 
 # ============================================================
 # PRODUCT HELPERS
 # ============================================================
 
 
-def get_product_id(product: Dict[str, Any]) -> str:
+def get_product_id(product: dict[str, Any]) -> str:
 
-    return str(
-        product.get("product_id") or product.get("id") or product.get("code") or ""
-    )
+    return str(product.get("product_id") or product.get("id") or product.get("code") or "")
 
 
-def get_product_name(product: Dict[str, Any]) -> str:
+def get_product_name(product: dict[str, Any]) -> str:
 
     return str(
         product.get("product_name")
@@ -25,7 +22,7 @@ def get_product_name(product: Dict[str, Any]) -> str:
     )
 
 
-def get_min_score(product: Dict[str, Any]) -> float:
+def get_min_score(product: dict[str, Any]) -> float:
 
     return float(product.get("min_score") or product.get("minimum_score") or 0)
 
@@ -35,7 +32,7 @@ def get_min_score(product: Dict[str, Any]) -> float:
 # ============================================================
 
 
-def recommend_products(score: float, products: List[Dict[str, Any]]) -> Dict[str, Any]:
+def recommend_products(score: float, products: list[dict[str, Any]]) -> dict[str, Any]:
 
     eligible = []
     ineligible = []

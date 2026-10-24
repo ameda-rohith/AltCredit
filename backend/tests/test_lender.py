@@ -22,13 +22,12 @@ def _walk_keys(obj):
             yield from _walk_keys(i)
 
 
-def test_lender_search_is_anonymous_and_filtered(client, lender_id):
-    L = f"{API}/lender/{lender_id('primebank')}"
+def test_lender_search_is_anonymous_and_filtered(client, login_as):
+    L = f"{API}/lender/{login_as('primebank', 'lender')}"
     r = client.get(f"{L}/candidates", params={"min_score": 700, "limit": 20}).json()
     assert r["total"] > 0 and r["results"]
     assert all(
-        c["credit_score"] >= 700 and c["anon_lead_id"].startswith("ANON-")
-        for c in r["results"]
+        c["credit_score"] >= 700 and c["anon_lead_id"].startswith("ANON-") for c in r["results"]
     )
     assert not FORBIDDEN_KEYS & set(_walk_keys(r))
     scores = [c["credit_score"] for c in r["results"]]
@@ -36,22 +35,22 @@ def test_lender_search_is_anonymous_and_filtered(client, lender_id):
     # lender policy (score >= 650) is applied by default
     default = client.get(f"{L}/candidates", params={"limit": 200}).json()
     assert all(c["credit_score"] >= 650 for c in default["results"])
-    wide = client.get(
-        f"{L}/candidates", params={"only_qualifying": False, "max_score": 300}
-    ).json()
+    wide = client.get(f"{L}/candidates", params={"only_qualifying": False, "max_score": 300}).json()
     assert all(c["credit_score"] <= 300 for c in wide["results"])
     detail = client.get(f"{L}/candidates/{r['results'][0]['anon_lead_id']}").json()
     assert detail["pillar_breakdown"] and not FORBIDDEN_KEYS & set(_walk_keys(detail))
     assert client.get(f"{L}/candidates/ANON-NOPE").status_code == 404
 
 
-def test_offer_lifecycle_reveals_identity_only_on_accept(client, lender_id):
-    L = f"{API}/lender/{lender_id('primebank')}"
+def test_offer_lifecycle_reveals_identity_only_on_accept(client, login_as):
+    lender = login_as("primebank", "lender")
+    L = f"{API}/lender/{lender}"
     # USR_002 (665) qualifies for Prime Bank (min 650)
+    from sqlalchemy import select
+
+    from app import models
     from app.main import app  # noqa: F401
     from core.database import SessionLocal
-    from app import models
-    from sqlalchemy import select
 
     with SessionLocal() as db:
         lead_id = db.scalar(
@@ -60,9 +59,7 @@ def test_offer_lifecycle_reveals_identity_only_on_accept(client, lender_id):
             .where(models.LoanApplication.user_id == "USR_002")
         )
         low = db.scalar(
-            select(models.AnonymousLead.anon_lead_id).where(
-                models.AnonymousLead.credit_score < 400
-            )
+            select(models.AnonymousLead.anon_lead_id).where(models.AnonymousLead.credit_score < 400)
         )
     body = {
         "anon_lead_ids": [lead_id, low, "ANON-NOPE"],
@@ -79,15 +76,13 @@ def test_offer_lifecycle_reveals_identity_only_on_accept(client, lender_id):
     }
     # duplicate open offer is skipped
     again = client.post(f"{L}/offers", json={**body, "anon_lead_ids": [lead_id]}).json()
-    assert (
-        again["created"] == []
-        and again["skipped"][0]["reason"] == "open offer already exists"
-    )
+    assert again["created"] == [] and again["skipped"][0]["reason"] == "open offer already exists"
 
     offers = client.get(f"{L}/offers").json()
     mine = next(o for o in offers if o["anon_lead_id"] == lead_id)
     assert mine["status"] == "OFFERED" and mine["contact"] is None
 
+    login_as("USR_002")
     user_offers = client.get(f"{API}/products/USR_002/offers").json()
     assert user_offers[0]["lender"] == "Prime Bank"
     assert client.get(f"{API}/dashboard/USR_002").json()["has_pending_offers"] is True
@@ -105,11 +100,13 @@ def test_offer_lifecycle_reveals_identity_only_on_accept(client, lender_id):
         ).status_code
         == 409
     )
+    login_as("primebank", "lender")
     revealed = next(
         o for o in client.get(f"{L}/offers").json() if o["offer_id"] == mine["offer_id"]
     )
     assert revealed["contact"]["email"] == "usr_002@example.test"
     # another user cannot answer this offer
+    login_as("USR_001")
     assert (
         client.post(
             f"{API}/products/USR_001/offers/{mine['offer_id']}/respond",
@@ -119,9 +116,10 @@ def test_offer_lifecycle_reveals_identity_only_on_accept(client, lender_id):
     )
 
 
-def test_unknown_lender_and_bad_input(client, lender_id):
-    assert client.get(f"{API}/lender/9999/candidates").status_code == 404
-    L = f"{API}/lender/{lender_id('microfin')}"
+def test_unknown_lender_and_bad_input(client, login_as):
+    L = f"{API}/lender/{login_as('microfin', 'lender')}"
+    # another (or non-existent) lender id is forbidden, not "not found"
+    assert client.get(f"{API}/lender/9999/candidates").status_code == 403
     assert client.get(L).json()["company_name"] == "MicroFin Capital"
     assert (
         client.post(

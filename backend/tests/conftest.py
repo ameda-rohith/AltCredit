@@ -6,6 +6,7 @@ from pathlib import Path
 _tmp = tempfile.mkdtemp(prefix="altcredit-test-")
 os.environ["DATABASE_URL"] = f"sqlite:///{Path(_tmp) / 'test.db'}"
 os.environ["PBKDF2_ITERATIONS"] = "1000"
+os.environ["SECRET_KEY"] = "test-secret-key"
 
 import pytest  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402
@@ -26,15 +27,41 @@ def client():
         yield c
 
 
-def _login(client, username, role="user"):
+@pytest.fixture(autouse=True)
+def _anonymous(client):
+    """Every test starts without credentials; log in explicitly with `login_as`."""
+    client.headers.pop("Authorization", None)
+    yield
+    client.headers.pop("Authorization", None)
+
+
+def _token_headers(client, username, role="user", password=None):
     r = client.post(
         f"{API}/auth/login",
-        json={"username": username, "role": role, "password": settings.demo_password},
+        json={"username": username, "role": role, "password": password or settings.demo_password},
     )
     assert r.status_code == 200, r.text
-    return r.json()["subject"]
+    body = r.json()
+    return body["subject"], {"Authorization": f"Bearer {body['token']}"}
 
 
-@pytest.fixture(scope="session")
-def lender_id(client):
-    return lambda name="primebank": _login(client, name, "lender")
+@pytest.fixture
+def login_as(client):
+    """Log the shared client in (replacing any previous login); returns the subject id."""
+
+    def _login(username, role="user"):
+        subject, headers = _token_headers(client, username, role)
+        client.headers.update(headers)
+        return subject
+
+    return _login
+
+
+@pytest.fixture
+def headers_for(client):
+    """Authorization headers for one request, without touching the client's own login."""
+
+    def _headers(username, role="user"):
+        return _token_headers(client, username, role)[1]
+
+    return _headers

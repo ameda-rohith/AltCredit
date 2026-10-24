@@ -1,8 +1,9 @@
 """Transparency Report (PDF) and credit-profile export (JSON)."""
 
 import io
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
+from xml.sax.saxutils import escape
 
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4
@@ -27,6 +28,8 @@ def decision(result: dict[str, Any]) -> tuple[str, str]:
     return "REJECT", "Score is below the minimum requirement of every product." + need
 
 
+# ReportLab paragraphs parse an XML-like markup, so every dynamic string is escaped: stray "<" or
+# "&" would raise, and tags such as <img src=...> would be interpreted instead of printed.
 def build_pdf(result: dict[str, Any], user_id: str) -> bytes:
     styles = getSampleStyleSheet()
     buf = io.BytesIO()
@@ -43,16 +46,19 @@ def build_pdf(result: dict[str, Any], user_id: str) -> bytes:
     story: list[Any] = [
         Paragraph("AltCredit Transparency Report", styles["Title"]),
         Paragraph(
-            f"Applicant: {user_id} &nbsp;|&nbsp; Generated: {datetime.now(timezone.utc):%Y-%m-%d %H:%M} UTC",
+            f"Applicant: {escape(user_id)} &nbsp;|&nbsp; "
+            f"Generated: {datetime.now(UTC):%Y-%m-%d %H:%M} UTC",
             styles["Normal"],
         ),
         Spacer(1, 6 * mm),
         Paragraph(f"Decision: <b>{verdict}</b>", styles["Heading2"]),
-        Paragraph(why, styles["Normal"]),
+        Paragraph(escape(why), styles["Normal"]),
         Spacer(1, 3 * mm),
         Paragraph(
-            f"Credit score <b>{result['credit_score']:.0f} / {result['max_score']}</b> - {result['risk_tier']} "
-            f"(estimated probability of default {result['predicted_pd']:.1%})",
+            f"Credit score <b>{result['credit_score']:.0f} / {result['max_score']}</b>"
+            f" - {escape(result['risk_tier'])} "
+            f"(default-risk indicator {result['predicted_pd']:.1%}, derived from the score "
+            "- not a statistical prediction)",
             styles["Normal"],
         ),
         Spacer(1, 5 * mm),
@@ -76,7 +82,7 @@ def build_pdf(result: dict[str, Any], user_id: str) -> bytes:
         rows.append(
             [
                 f["factor"],
-                Paragraph(str(f["value"]), styles["BodyText"]),
+                Paragraph(escape(str(f["value"])), styles["BodyText"]),
                 f["score"],
                 f["max_score"],
             ]
@@ -84,20 +90,22 @@ def build_pdf(result: dict[str, Any], user_id: str) -> bytes:
     story.append(_table(rows, widths=[60 * mm, 62 * mm, 22 * mm, 22 * mm]))
     story += [Spacer(1, 5 * mm), Paragraph("What would help most", styles["Heading3"])]
     for s in result["explanation"]["improvement_suggestions"][:5]:
-        story.append(Paragraph(f"&bull; {s['suggestion']}", styles["Normal"]))
+        story.append(Paragraph(f"&bull; {escape(s['suggestion'])}", styles["Normal"]))
     if result["missing_fields"]:
         story += [
             Spacer(1, 4 * mm),
             Paragraph(
-                f"Note: {len(result['missing_fields'])} input(s) were not available and scored conservatively: "
-                f"{', '.join(result['missing_fields'])}.",
+                f"Note: {len(result['missing_fields'])} input(s) were not available "
+                "and scored conservatively: "
+                f"{escape(', '.join(result['missing_fields']))}.",
                 styles["Italic"],
             ),
         ]
     story += [
         Spacer(1, 8 * mm),
         Paragraph(
-            "Prototype using synthetic data. This is an assessment aid, not a legally binding credit decision.",
+            "Prototype using synthetic data. This is an assessment aid, "
+            "not a legally binding credit decision.",
             styles["Italic"],
         ),
     ]
@@ -127,15 +135,14 @@ def _table(rows, widths=None):
     return t
 
 
-def profile_export(
-    result: dict[str, Any], profile: dict[str, Any], user_id: str
-) -> dict[str, Any]:
+def profile_export(result: dict[str, Any], profile: dict[str, Any], user_id: str) -> dict[str, Any]:
     return {
         "user_id": user_id,
-        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "generated_at": datetime.now(UTC).isoformat(),
         "credit_score": result["credit_score"],
         "risk_tier": result["risk_tier"],
         "predicted_pd": result["predicted_pd"],
+        "pd_basis": result["pd_basis"],
         "pillar_breakdown": result["pillar_breakdown"],
         "subfactor_breakdown": result["subfactor_breakdown"],
         "eligible_products": [

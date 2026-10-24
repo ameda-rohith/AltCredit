@@ -1,13 +1,18 @@
-from typing import Any, Dict
+from typing import Any
 
 from services import score_config as c
+
+
+def _tier_max(config: dict) -> int:
+    """Best possible points of a tiered factor, read from the config so the two cannot drift."""
+    return max(tier["points"] for tier in config["tiers"])
 
 
 class AltCreditRuleEngine:
     def __init__(self, config_module=c):
         self.cfg = config_module
 
-    def evaluate_user(self, user_data: Dict[str, Any]) -> Dict[str, Any]:
+    def evaluate_user(self, user_data: dict[str, Any]) -> dict[str, Any]:
         breakdown = {}
 
         # ------------------------------------------------------------------
@@ -22,7 +27,7 @@ class AltCreditRuleEngine:
                 break
         breakdown["1.1_employment_stability"] = {
             "score": p_1_1,
-            "max": 150,
+            "max": _tier_max(self.cfg.EMPLOYMENT_STABILITY_CONFIG),
             "val": f"{months_at_job} months",
         }
 
@@ -40,7 +45,12 @@ class AltCreditRuleEngine:
                 p_1_2 = h_cfg["rent_short_points"]
         breakdown["1.2_housing_status"] = {
             "score": p_1_2,
-            "max": 80,
+            "max": max(
+                h_cfg["owner_points"],
+                h_cfg["rent_ontime_points"],
+                h_cfg["rent_short_points"],
+                h_cfg["none_points"],
+            ),
             "val": f"housing={housing}, rent_on_time={rent_on_time}mo",
         }
 
@@ -53,7 +63,7 @@ class AltCreditRuleEngine:
                 break
         breakdown["1.3_digital_footprint"] = {
             "score": p_1_3,
-            "max": 70,
+            "max": _tier_max(self.cfg.DIGITAL_FOOTPRINT_CONFIG),
             "val": f"{digital_rate * 100:.1f}%",
         }
 
@@ -67,7 +77,11 @@ class AltCreditRuleEngine:
                 p_1_4 = pts
                 break
 
-        breakdown["1.4_education_level"] = {"score": p_1_4, "max": 50, "val": edu_str}
+        breakdown["1.4_education_level"] = {
+            "score": p_1_4,
+            "max": max(edu_map.values()),
+            "val": edu_str,
+        }
 
         lifestyle_total = p_1_1 + p_1_2 + p_1_3 + p_1_4
 
@@ -85,7 +99,7 @@ class AltCreditRuleEngine:
                 break
         breakdown["2.1_spend_to_income_ratio"] = {
             "score": p_2_1,
-            "max": 120,
+            "max": _tier_max(self.cfg.SPEND_TO_INCOME_CONFIG),
             "val": f"{spend_ratio * 100:.1f}%",
         }
 
@@ -98,7 +112,7 @@ class AltCreditRuleEngine:
                 break
         breakdown["2.2_expense_diversity"] = {
             "score": p_2_2,
-            "max": 80,
+            "max": _tier_max(self.cfg.EXPENSE_DIVERSITY_CONFIG),
             "val": f"{essential_pct * 100:.1f}%",
         }
 
@@ -111,7 +125,7 @@ class AltCreditRuleEngine:
                 break
         breakdown["2.3_cashflow_volatility"] = {
             "score": p_2_3,
-            "max": 70,
+            "max": _tier_max(self.cfg.CASHFLOW_VOLATILITY_CONFIG),
             "val": f"{volatility * 100:.1f}%",
         }
 
@@ -124,7 +138,7 @@ class AltCreditRuleEngine:
                 break
         breakdown["2.4_savings_emergency_fund"] = {
             "score": p_2_4,
-            "max": 80,
+            "max": _tier_max(self.cfg.SAVINGS_BUFFER_CONFIG),
             "val": f"{savings_days} days",
         }
 
@@ -142,7 +156,7 @@ class AltCreditRuleEngine:
                 break
         breakdown["3.1_ontime_payment_rate"] = {
             "score": p_3_1,
-            "max": 200,
+            "max": _tier_max(self.cfg.ONTIME_PAYMENT_CONFIG),
             "val": f"{on_time_rate * 100:.1f}%",
         }
 
@@ -155,7 +169,7 @@ class AltCreditRuleEngine:
                 break
         breakdown["3.2_debt_to_income"] = {
             "score": p_3_2,
-            "max": 120,
+            "max": _tier_max(self.cfg.DEBT_TO_INCOME_CONFIG),
             "val": f"{dti * 100:.1f}%",
         }
 
@@ -168,7 +182,7 @@ class AltCreditRuleEngine:
                 break
         breakdown["3.3_credit_utilization"] = {
             "score": p_3_3,
-            "max": 100,
+            "max": _tier_max(self.cfg.CREDIT_UTILIZATION_CONFIG),
             "val": f"{credit_util * 100:.1f}%",
         }
 
@@ -189,7 +203,7 @@ class AltCreditRuleEngine:
 
         breakdown["3.4_delinquency_severity"] = {
             "score": p_3_4,
-            "max": 150,
+            "max": d_cfg["clean_history_points"],
             "val": delinq_desc,
         }
 
@@ -207,9 +221,7 @@ class AltCreditRuleEngine:
         )
 
         risk_flags = user_data["risk_flags"]
-        penalty_pts = min(
-            risk_flags * bp_cfg["penalty_per_risk_flag"], bp_cfg["max_risk_penalty"]
-        )
+        penalty_pts = min(risk_flags * bp_cfg["penalty_per_risk_flag"], bp_cfg["max_risk_penalty"])
 
         net_adjustments = bonus_pts - penalty_pts
         breakdown["4.1_positive_habits"] = {
@@ -225,9 +237,7 @@ class AltCreditRuleEngine:
 
         # Raw Score Capping
         raw_score = lifestyle_total + spending_total + repayment_total + net_adjustments
-        final_score = max(
-            self.cfg.MIN_CREDIT_SCORE, min(self.cfg.MAX_CREDIT_SCORE, raw_score)
-        )
+        final_score = max(self.cfg.MIN_CREDIT_SCORE, min(self.cfg.MAX_CREDIT_SCORE, raw_score))
 
         # Risk Tier Categorization
         risk_tier = "High Risk / Poor"

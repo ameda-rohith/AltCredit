@@ -10,16 +10,14 @@ from services import data_parser, user_service
 
 
 def test_scores_match_ground_truth_for_all_users():
-    truth = pd.read_csv(
-        settings.data_dir / "processed" / "product_recommendations.csv"
-    ).set_index("user_id")
+    truth = pd.read_csv(settings.data_dir / "processed" / "product_recommendations.csv").set_index(
+        "user_id"
+    )
     users = data_parser.load_merged_users()
     assert len(users) == len(truth) == 500
     for u in users:
         r = user_service.score(u, with_details=False)
-        assert r["credit_score"] == truth.loc[u["user_id"], "final_credit_score"], u[
-            "user_id"
-        ]
+        assert r["credit_score"] == truth.loc[u["user_id"], "final_credit_score"], u["user_id"]
         assert r["risk_tier"] == truth.loc[u["user_id"], "risk_tier"]
 
 
@@ -30,7 +28,7 @@ def test_factor_points_match_factor_analysis_csv():
         next(u for u in data_parser.load_merged_users() if u["user_id"] == "USR_002")
     )
     got = {f["factor"]: f["score"] for f in r["explanation"]["all_factors"]}
-    assert got == dict(zip(row.factor, row.score))
+    assert got == dict(zip(row.factor, row.score, strict=True))
 
 
 def test_pd_is_inverse_of_score():
@@ -43,10 +41,7 @@ def test_missing_data_does_not_crash():
     """Robustness: no utility / payment history, no spend data, junk values."""
     r = user_service.score({"user_id": "X", "monthly_income": 3000})
     assert 0 <= r["credit_score"] <= 1000
-    assert (
-        "on_time_rate" in r["missing_fields"]
-        and "digital_payment_rate" in r["missing_fields"]
-    )
+    assert "on_time_rate" in r["missing_fields"] and "digital_payment_rate" in r["missing_fields"]
     assert r["data_completeness"] < 1
     # entirely empty and dirty inputs
     assert user_service.score({})["credit_score"] >= 0
@@ -58,15 +53,8 @@ def test_missing_data_does_not_crash():
 
 def test_missing_fields_never_beat_full_data():
     full = next(u for u in data_parser.load_merged_users() if u["user_id"] == "USR_002")
-    partial = {
-        k: v
-        for k, v in full.items()
-        if k not in ("on_time_rate", "digital_payment_rate")
-    }
-    assert (
-        user_service.score(partial)["credit_score"]
-        <= user_service.score(full)["credit_score"]
-    )
+    partial = {k: v for k, v in full.items() if k not in ("on_time_rate", "digital_payment_rate")}
+    assert user_service.score(partial)["credit_score"] <= user_service.score(full)["credit_score"]
 
 
 def test_latency_well_under_budget():

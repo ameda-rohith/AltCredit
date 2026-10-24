@@ -193,7 +193,11 @@ Defines a `pydantic-settings` `Settings` class; every value is overridable via e
 | `merged_data_path` | `backend/data/merged_data.json` | Seed users |
 | `database_url` | `sqlite:///backend/altcredit.db` | Embedded DB |
 | `seed_on_startup` | `True` | Run `seed.seed()` at boot |
-| `pbkdf2_iterations` | `200_000` | Password hash cost (tests drop it to 1000) |
+| `pbkdf2_iterations` | `600_000` | Password hash cost, stored inside each hash (tests drop it to 1000) |
+| `secret_key` / `token_ttl_minutes` | dev default / `480` | HMAC key and lifetime of access tokens (**set `SECRET_KEY`**) |
+| `login_max_failures` / `login_window_seconds` | `10` / `300` | Failed-login throttle per (username, ip) |
+| `ollama_*`, `explain_max_per_hour`, `explain_cache_ttl_seconds` | see `config.py` | LLM explainer key/model/timeout; `/explain` budget and cache |
+| `reoffer_cooldown_days` | `30` | No re-offer to a candidate who declined this lender within N days |
 | `demo_password` | `altcredit-demo` | Password for all seeded users/lenders |
 | `bank_api_url` / `bank_api_key` / `bank_timeout_seconds` | `:8001` / `dev-only-bank-key` / `5.0` | Partner-bank integration |
 | `cors_origins` | `localhost:5173`, `127.0.0.1:5173` | Allowed frontend origins |
@@ -206,8 +210,9 @@ Defines a `pydantic-settings` `Settings` class; every value is overridable via e
 - `_add_missing_columns()` — a **mini-migration**: `create_all` ignores existing tables, so for each model column not present in the live table it issues `ALTER TABLE … ADD COLUMN`. Only safe for nullable / defaultable additions; it never drops or alters.
 
 ### `core/security.py`
-- `hash_password(password, salt=None)` → `"<salt>$<pbkdf2-sha256 hex>"` (stdlib only).
-- `verify_password(password, stored)` → constant-time compare via `hmac.compare_digest`; returns `False` for empty/malformed hashes.
+- `hash_password(password)` → `"pbkdf2_sha256$<iterations>$<salt>$<hex>"` (stdlib only; the cost travels with the hash). Legacy `"<salt>$<hex>"` hashes (200k iterations) still verify and are re-hashed on the next login (`needs_rehash`).
+- `verify_password(password, stored)` → constant-time compare via `hmac.compare_digest`; returns `False` for empty/malformed hashes. `dummy_hash()` is verified for unknown accounts so they cost the same time as a wrong password.
+- `create_token(subject, role)` / `decode_token(token)` → `base64url(json{sub,role,exp}).base64url(HMAC-SHA256)`; `decode_token` returns `None` for tampered, malformed or expired tokens.
 - `new_anon_id(existing)` → `ANON-XXXXXX` (3 random bytes, hex upper), retried until unique. This is the pseudonym lenders see.
 
 ---
@@ -247,7 +252,7 @@ Seven SQLAlchemy models (full ER diagram in [§12](#12-data-model)):
 ### `app/api/routes/auth.py`
 | Endpoint | Behaviour |
 |---|---|
-| `POST /auth/login` | Looks up lender by `username` or user by id/email (lower-cased); verifies password; returns `{role, subject}`. **No token.** Same 401 message for unknown account and wrong password (no user enumeration). |
+| `POST /auth/login` | Looks up lender by `username` or user by id/email (lower-cased); verifies password; returns `{role, subject, token, token_type, expires_in}`. Same 401 message **and timing** for unknown account and wrong password; repeated failures per (username, ip) → 429 + `Retry-After`. Old hashes are upgraded on success. |
 | `POST /auth/register` | 409 on duplicate email; generates next `USR_nnn` id (skips collisions); creates `User`; calls `user_service.record_scoring` on the submitted profile; returns score, tier and `missing_fields`. |
 
 ### `app/api/routes/scoring.py`
@@ -459,7 +464,11 @@ Returns `current_score, target_score, points_needed, projected_score, reachable,
 
 | File | What it verifies |
 |---|---|
-| `conftest.py` | Sets a temp SQLite DB and low PBKDF2 cost **before** importing the app; a session-scoped `TestClient`; monkey-patches `bank_client.get_client` to an in-process bank; `lender_id` login helper. |
+| `conftest.py` | Sets a temp SQLite DB, low PBKDF2 cost and a test `SECRET_KEY` **before** importing the app; a session-scoped `TestClient` that starts every test logged out; `login_as(username, role)` (sets the client's bearer token) and `headers_for(...)` helpers; monkey-patches `bank_client.get_client` to an in-process bank. |
+| `test_auth.py`, `test_security.py` | 401/403 matrix over every protected route, tampered/expired/foreign-key tokens, login throttle and timing, hash format + legacy upgrade. |
+| `test_inputs.py`, `test_correctness.py` | Profile/what-if validation, PDF escaping, education scoring, upload-vs-delinquency, penalty factors, FK pragma, UTC timestamps. |
+| `test_explain_route.py`, `test_llm_explainer.py` | `/explain` cache, rate limit, 503 behaviour, tolerant LLM parsing. |
+| `test_offers_and_bank.py`, `test_consent.py` | Re-offer rules, bank response guards, consent opt-in/out and offer withdrawal, `pd_basis`. |
 | `test_scoring.py` (7) | Engine matches the ground-truth CSVs for **all 500 users** (score, tier) and the factor-analysis CSV; `PD = 1 − score/1000`; missing data doesn't crash and never beats full data; latency budget; transaction feature derivation. |
 | `test_api.py` (8) | E2E profile→dashboard, what-if, target counterfactual, login checks DB, register + CSV upload + thin file, apply via bank, bank rejects missing key, signup persists full profile. |
 | `test_lender.py` (3) | Search is anonymous & filtered (no `user_id/name/email/…` keys anywhere in the payload), **offer lifecycle reveals identity only on accept**, bad input / unknown lender. |
@@ -485,9 +494,9 @@ Run: `.venv/bin/python -m pytest -q`
 | `data/merged_data.json` | 500 users: demographics + 15 behavioural features (seed source). |
 | `machine_learning/data/product_catalog.json` | 4 products: P_01 Starter Card (350), P_02 Micro-Loan Lite (550), P_03 Standard Card (650), P_04 Premium Personal Loan (750). *(outside `backend/`, read via `settings.data_dir`)* |
 | `machine_learning/data/transactional_data.csv`, `processed/*.csv` | Transactions and ground-truth outputs used by tests. |
-| `.env.example` | `DATABASE_URL`, `DEMO_PASSWORD`, `BANK_API_URL`, `BANK_API_KEY`. |
+| `.env.example` | `DATABASE_URL`, `DEMO_PASSWORD`, `SECRET_KEY`, `BANK_API_URL`, `BANK_API_KEY`, `OLLAMA_API_KEY`. |
 | `.gitignore` | `.env`, `*.db`, `__pycache__/`, `.pytest_cache/`. |
-| `requirements.txt` / `pyproject.toml` | Pinned deps / stub project metadata (`dependencies = []`, Python ≥ 3.13). |
+| `requirements.txt` / `requirements-dev.txt` / `pyproject.toml` | Pinned runtime deps / pytest + ruff / project metadata and ruff + pytest config (Python ≥ 3.13). Lint: `ruff check . && ruff format --check .` |
 | `README.md` | Run instructions, layout, API table, assumptions. |
 
 ---

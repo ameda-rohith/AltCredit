@@ -46,10 +46,21 @@ The `machine_learning/engines` scripts have been removed; their reusable parts n
 
 ## Auth
 
-No tokens. `POST /auth/login` checks that the user (id or email) or lender (username) exists and the password
-matches, and returns `{role, subject}`. Every other endpoint identifies the caller by the id in the URL
-(`/scoring/{user_id}`, `/lender/{lender_id}/...`). This is prototype-level only: anyone who knows an id can call
-that user's endpoints.
+`POST /auth/login`, `/auth/register` and `/auth/register-lender` return `{role, subject, token, token_type,
+expires_in}`. Send the token as `Authorization: Bearer <token>`; every route except `/health`, `/products`
+(catalog) and `/auth/*` requires it. A token is bound to one account: a borrower token only opens
+`/…/{their user_id}/…`, a lender token only `/lender/{their lender_id}/…` (401 without or with a bad/expired
+token, 403 for someone else's id).
+
+Tokens are stdlib HMAC-SHA256 signed (`core/security.py`), valid `TOKEN_TTL_MINUTES` (default 480). **Set
+`SECRET_KEY` in `.env` for anything shared** (the API logs a warning while the dev default is in use).
+Failed logins are throttled per (username, client ip): `LOGIN_MAX_FAILURES` per `LOGIN_WINDOW_SECONDS` → 429.
+`GET /scoring/{id}/explain` (paid LLM) is limited to `EXPLAIN_MAX_PER_HOUR` fresh generations per user and caches
+results while the score inputs are unchanged. The limiters are in-memory, i.e. per process.
+
+**Lender visibility is consent-based.** Seeded demo users are in the lender pool; new registrants are opt-in
+(`share_with_lenders` at signup) and can change it with `PUT /users/{id}/consent`. Opting out hides the
+candidate and withdraws open offers (`WITHDRAWN`).
 
 ## API (prefix `/api/v1`)
 

@@ -6,25 +6,17 @@ it, never to re-score. If the LLM is unconfigured or fails, callers get a clear 
 and the deterministic explanation from `explainability.build_explanation` still stands.
 """
 
+import hashlib
 import json
-from pathlib import Path
+import threading
+import time
+from collections import OrderedDict
+from collections.abc import Callable
 from typing import Any
 
 import httpx
-from pydantic_settings import BaseSettings, SettingsConfigDict
 
-BACKEND_DIR = Path(__file__).resolve().parent.parent
-
-
-class LLMSettings(BaseSettings):
-    model_config = SettingsConfigDict(
-        env_file=BACKEND_DIR / ".env", extra="ignore", env_prefix="OLLAMA_"
-    )
-
-    api_key: str = ""
-    base_url: str = "https://ollama.com"
-    model: str = "gpt-oss:120b"
-    timeout_seconds: float = 90.0
+from core.config import settings
 
 
 class LLMUnavailable(RuntimeError):
@@ -58,7 +50,8 @@ Pillar 4 - Adjustments: +20 per positive habit (max +50); -20 per risk flag (max
 
 Risk tiers: >=750 Prime / Low Risk; >=650 Near-Prime / Medium Risk;
 >=550 Sub-Prime / Fair; below 550 High Risk / Poor.
-Predicted probability of default = 1 - score/1000.
+The "predicted_pd" figure is only a risk indicator derived from the score (1 - score/1000).
+It is not a statistical prediction: never present it as the chance that the person defaults.
 A factor "points" is what was earned; "max_points" is the most it could have earned.
 """
 
@@ -104,11 +97,22 @@ def _compact(scored: dict[str, Any]) -> dict[str, Any]:
         "max_score": scored.get("max_score"),
         "risk_tier": scored.get("risk_tier"),
         "predicted_pd": scored.get("predicted_pd"),
+        "pd_basis": scored.get("pd_basis"),
         "score_capped": scored.get("score_capped"),
         "pillar_points": scored.get("pillar_breakdown"),
         "factors": factors,
         "missing_fields": scored.get("missing_fields"),
     }
+
+
+def _strings(value: Any, limit: int = 3, max_len: int = 400) -> list[str]:
+    """Up to `limit` non-empty strings from whatever the model returned for a list field."""
+    if isinstance(value, str):  # a lone string is one item, not a list of characters
+        value = [value]
+    if not isinstance(value, list):
+        return []
+    items = (str(x).strip() for x in value if x is not None)
+    return [x[:max_len] for x in items if x][:limit]
 
 
 def _parse(content: str) -> dict[str, Any]:
@@ -122,23 +126,21 @@ def _parse(content: str) -> dict[str, Any]:
     if not isinstance(data, dict) or not isinstance(data.get("summary"), str):
         raise LLMUnavailable("model response missing 'summary'")
     return {
-        "summary": data["summary"],
-        **{
-            k: [str(x) for x in data.get(k, [])][:3]
-            for k in ("strengths", "weaknesses", "next_steps")
-        },
+        "summary": data["summary"].strip()[:1200],
+        **{k: _strings(data.get(k)) for k in ("strengths", "weaknesses", "next_steps")},
     }
 
 
-def explain_score(
-    scored: dict[str, Any], client: httpx.Client | None = None
-) -> dict[str, Any]:
-    """Narrate the output of `user_service.score(...)`. Raises LLMUnavailable on any failure."""
-    cfg = LLMSettings()
-    if not cfg.api_key:
+def ensure_configured() -> None:
+    if not settings.ollama_api_key:
         raise LLMUnavailable("OLLAMA_API_KEY is not configured")
+
+
+def explain_score(scored: dict[str, Any], client: httpx.Client | None = None) -> dict[str, Any]:
+    """Narrate the output of `user_service.score(...)`. Raises LLMUnavailable on any failure."""
+    ensure_configured()
     payload = {
-        "model": cfg.model,
+        "model": settings.ollama_model,
         "stream": False,
         "format": "json",
         "options": {"temperature": 0.2},
@@ -148,18 +150,63 @@ def explain_score(
         ],
     }
     own = client is None
-    client = client or httpx.Client(timeout=cfg.timeout_seconds)
+    client = client or httpx.Client(timeout=settings.ollama_timeout_seconds)
     try:
         r = client.post(
-            f"{cfg.base_url}/api/chat",
+            f"{settings.ollama_base_url}/api/chat",
             json=payload,
-            headers={"Authorization": f"Bearer {cfg.api_key}"},
+            headers={"Authorization": f"Bearer {settings.ollama_api_key}"},
         )
         r.raise_for_status()
         content = r.json()["message"]["content"]
-    except (httpx.HTTPError, KeyError, ValueError) as exc:
+    except (httpx.HTTPError, KeyError, TypeError, ValueError) as exc:
         raise LLMUnavailable(f"LLM request failed: {exc.__class__.__name__}") from exc
     finally:
         if own:
             client.close()
-    return {"model": cfg.model, **_parse(content)}
+    if not isinstance(content, str):
+        raise LLMUnavailable("model response was not text")
+    return {"model": settings.ollama_model, **_parse(content)}
+
+
+class ExplanationCache:
+    """Small TTL + size-bounded cache so an unchanged score never triggers a second paid call."""
+
+    def __init__(
+        self,
+        ttl_seconds: float,
+        max_entries: int = 1000,
+        clock: Callable[[], float] = time.monotonic,
+    ):
+        self.ttl = ttl_seconds
+        self.max_entries = max_entries
+        self._clock = clock
+        self._items: OrderedDict[str, tuple[float, dict[str, Any]]] = OrderedDict()
+        self._lock = threading.Lock()
+
+    @staticmethod
+    def key(user_id: str, scored: dict[str, Any]) -> str:
+        """Same user and same prompt input -> same key (any score/factor change misses)."""
+        blob = json.dumps(_compact(scored), sort_keys=True, default=str)
+        return f"{user_id}:{hashlib.sha256(blob.encode()).hexdigest()}"
+
+    def get(self, key: str) -> dict[str, Any] | None:
+        with self._lock:
+            hit = self._items.get(key)
+            if hit is None:
+                return None
+            if hit[0] <= self._clock():
+                del self._items[key]
+                return None
+            return hit[1]
+
+    def set(self, key: str, value: dict[str, Any]) -> None:
+        with self._lock:
+            self._items[key] = (self._clock() + self.ttl, value)
+            self._items.move_to_end(key)
+            while len(self._items) > self.max_entries:
+                self._items.popitem(last=False)
+
+    def clear(self) -> None:
+        with self._lock:
+            self._items.clear()

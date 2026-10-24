@@ -11,7 +11,8 @@ from core import security
 from services import data_parser
 from services.explainability import build_explanation
 from services.product_engine import recommend_products
-from services.rule_engine import c as ml_config, engine
+from services.rule_engine import c as ml_config
+from services.rule_engine import engine
 
 
 @lru_cache
@@ -19,8 +20,13 @@ def product_catalog() -> tuple[dict[str, Any], ...]:
     return tuple(data_parser.load_product_catalog())
 
 
+# `predicted_pd` is a default-risk *indicator derived from the score*, not the output of a trained
+# model: the data has no default labels. Every payload that carries it also says so (`pd_basis`).
+PD_BASIS = "score_derived"
+
+
 def probability_of_default(score: float) -> float:
-    """Inverse of the brief's Score = 1000 x (1 - PD); the data has no default label to train on."""
+    """Inverse of the brief's Score = 1000 x (1 - PD). Derived, not modelled (see PD_BASIS)."""
     return round(min(1.0, max(0.0, 1 - score / ml_config.MAX_CREDIT_SCORE)), 4)
 
 
@@ -36,8 +42,8 @@ def score(raw: dict[str, Any], with_details: bool = True) -> dict[str, Any]:
         "max_score": ml_config.MAX_CREDIT_SCORE,
         "risk_tier": ev["risk_tier"],
         "predicted_pd": probability_of_default(value),
-        "score_capped": sum(ev["pillar_breakdown"].values())
-        > ml_config.MAX_CREDIT_SCORE,
+        "pd_basis": PD_BASIS,
+        "score_capped": sum(ev["pillar_breakdown"].values()) > ml_config.MAX_CREDIT_SCORE,
         "pillar_breakdown": ev["pillar_breakdown"],
         "subfactor_breakdown": ev["subfactor_breakdown"],
         "missing_fields": missing,
@@ -66,16 +72,13 @@ def current_profile(db: Session, user: models.User) -> dict[str, Any]:
     return profile
 
 
-def score_user(
-    db: Session, user: models.User, with_details: bool = True
-) -> dict[str, Any]:
+def score_user(db: Session, user: models.User, with_details: bool = True) -> dict[str, Any]:
     return score(current_profile(db, user), with_details)
 
 
 def _late_count(profile: dict[str, Any]) -> int:
     return sum(
-        int(profile.get(k) or 0)
-        for k in ("delinq_30plus", "delinq_60plus", "delinq_90plus")
+        int(profile.get(k) or 0) for k in ("delinq_30plus", "delinq_60plus", "delinq_90plus")
     )
 
 
@@ -87,18 +90,14 @@ def record_scoring(
     commit: bool = True,
 ) -> dict[str, Any]:
     """Score a profile, store the application + prediction, refresh the anonymous lead."""
-    result = score(
-        {**raw_profile, "user_id": user.user_id, "applicant_id": user.applicant_id}
-    )
+    result = score({**raw_profile, "user_id": user.user_id, "applicant_id": user.applicant_id})
     profile, _ = data_parser.normalise_profile(raw_profile)
     app = models.LoanApplication(
         user_id=user.user_id,
         monthly_income=profile["monthly_income"],
         debt_to_income=profile["dti"],
         late_payments_count=_late_count(profile),
-        profile={
-            k: v for k, v in raw_profile.items() if k not in ("user_id", "applicant_id")
-        },
+        profile={k: v for k, v in raw_profile.items() if k not in ("user_id", "applicant_id")},
     )
     db.add(app)
     db.flush()
@@ -124,6 +123,7 @@ def record_scoring(
         lead = models.AnonymousLead(
             anon_lead_id=security.new_anon_id(existing),
             application_id=app.application_id,
+            is_active=bool(user.share_with_lenders),
         )
         if known_anon_ids is not None:
             known_anon_ids.add(lead.anon_lead_id)
@@ -134,7 +134,7 @@ def record_scoring(
         result["predicted_pd"],
     )
     lead.monthly_income, lead.debt_to_income = profile["monthly_income"], profile["dti"]
-    lead.is_active = True
+    # is_active is the borrower's consent (see consent.py) and is deliberately left alone here
     if commit:
         db.commit()
     result["application_id"] = app.application_id

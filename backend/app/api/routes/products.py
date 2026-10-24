@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 
 from app import models, schemas
 from app.api.dependencies import existing_user
+from app.models import _now
 from core.database import get_db
 from services import bank_client, user_service
 
@@ -16,9 +17,7 @@ def catalog():
 
 
 @router.get("/{user_id}/recommendations")
-def recommendations(
-    user: models.User = Depends(existing_user), db: Session = Depends(get_db)
-):
+def recommendations(user: models.User = Depends(existing_user), db: Session = Depends(get_db)):
     """Product matches; recomputed from the live score, so they update as the score changes."""
     result = user_service.score_user(db, user, with_details=False)
     return {"credit_score": result["credit_score"], **result["recommendations"]}
@@ -32,15 +31,31 @@ def apply(
 ):
     """User clicks an offer: call the partner bank's API for the pre-approved product."""
     product = next(
-        (
-            p
-            for p in user_service.product_catalog()
-            if p["product_id"] == body.product_id
-        ),
+        (p for p in user_service.product_catalog() if p["product_id"] == body.product_id),
         None,
     )
     if product is None:
         raise HTTPException(404, "product not found")
+    # Applying twice must not create a second bank application: replay the approved one.
+    approved = db.scalar(
+        select(models.BankApplication)
+        .where(
+            models.BankApplication.user_id == user.user_id,
+            models.BankApplication.product_id == product["product_id"],
+            models.BankApplication.status == "APPROVED",
+        )
+        .order_by(models.BankApplication.id.desc())
+        .limit(1)
+    )
+    if approved is not None:
+        return {
+            "product": product,
+            "status": approved.status,
+            "bank_reference": approved.bank_reference,
+            "details": approved.details,
+            "reason": None,
+            "already_applied": True,
+        }
     result = user_service.score_user(db, user, with_details=False)
     if result["credit_score"] < product["min_score"]:
         raise HTTPException(
@@ -115,13 +130,12 @@ def respond(
     db: Session = Depends(get_db),
 ):
     """Accepting an offer is what de-anonymises the user to that lender."""
-    match = next(
-        (o for o, _ in _user_offers(db, user.user_id) if o.offer_id == offer_id), None
-    )
+    match = next((o for o, _ in _user_offers(db, user.user_id) if o.offer_id == offer_id), None)
     if match is None:
         raise HTTPException(404, "offer not found")
     if match.status != "OFFERED":
         raise HTTPException(409, f"offer already {match.status}")
     match.status = body.decision
+    match.responded_at = _now()
     db.commit()
     return {"offer_id": offer_id, "status": match.status}
