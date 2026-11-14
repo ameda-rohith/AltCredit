@@ -111,7 +111,7 @@ class Settings(BaseSettings):
     explain_cache_ttl_seconds: int = 3600
 
     # --- CORS: frontend origins allowed to call the API directly ------------
-    cors_origins: list[str] = ["http://localhost:5173", "http://127.0.0.1:5173", "*"]
+    cors_origins: list[str] | str = ["http://localhost:5173", "http://127.0.0.1:5173", "*"]
 
 
 @lru_cache
