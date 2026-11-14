@@ -1,6 +1,16 @@
-.vscode
+.vscode/
 .DS_Store
 .claude/
-# Datasets stay local (the backend and tests read them from here); the product catalog is app config, so it stays tracked
-machine_learning/data/*
-!machine_learning/data/product_catalog.json
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+env/
+venv/
+.pytest_cache/
+.coverage
+htmlcov/
+dist/
+node_modules/
+*.db
+.env

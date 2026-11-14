@@ -3,11 +3,18 @@ import uuid
 from typing import Literal
 
 from fastapi import Depends, FastAPI, Header, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
 from core.config import settings
 
 app = FastAPI(title="Partner Bank API (mock)", version="1.0")
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 def require_api_key(x_api_key: str | None = Header(default=None)) -> None:

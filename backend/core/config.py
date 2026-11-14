@@ -23,6 +23,52 @@ class Settings(BaseSettings):
         """`SECRET_KEY=` (as in .env.example) must not become an empty signing key."""
         return value if str(value or "").strip() else DEV_SECRET_KEY
 
+    @field_validator("data_dir", mode="before")
+    @classmethod
+    def _resolve_data_dir(cls, value):
+        if value:
+            p = Path(value)
+            if p.exists():
+                return p
+        default_p = REPO_ROOT / "machine_learning" / "data"
+        if default_p.exists():
+            return default_p
+        fallback_p = BACKEND_DIR / "data"
+        if fallback_p.exists():
+            return fallback_p
+        return default_p
+
+    @field_validator("merged_data_path", mode="before")
+    @classmethod
+    def _resolve_merged_data_path(cls, value):
+        if value:
+            p = Path(value)
+            if p.exists():
+                return p
+        default_p = BACKEND_DIR / "data" / "merged_data.json"
+        if default_p.exists():
+            return default_p
+        alt_p = REPO_ROOT / "backend" / "data" / "merged_data.json"
+        if alt_p.exists():
+            return alt_p
+        return default_p
+
+    @field_validator("cors_origins", mode="before")
+    @classmethod
+    def _parse_cors_origins(cls, value):
+        if isinstance(value, str):
+            value = value.strip()
+            if value == "*":
+                return ["*"]
+            if value.startswith("[") and value.endswith("]"):
+                import json
+                try:
+                    return json.loads(value)
+                except Exception:
+                    pass
+            return [o.strip() for o in value.split(",") if o.strip()]
+        return value
+
     # --- Data ----------------------------------------------------------------
     # product catalog, transactions and ground-truth CSVs are read from machine_learning/data
     data_dir: Path = REPO_ROOT / "machine_learning" / "data"
@@ -65,7 +111,7 @@ class Settings(BaseSettings):
     explain_cache_ttl_seconds: int = 3600
 
     # --- CORS: frontend origins allowed to call the API directly ------------
-    cors_origins: list[str] = ["http://localhost:5173", "http://127.0.0.1:5173"]
+    cors_origins: list[str] = ["http://localhost:5173", "http://127.0.0.1:5173", "*"]
 
 
 @lru_cache

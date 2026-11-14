@@ -1,0 +1,58 @@
+services:
+  - type: web
+    name: altcredit-bank-mock
+    runtime: python
+    plan: free
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn bank_mock.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.13"
+      - key: BANK_API_KEY
+        value: dev-only-bank-key
+
+  - type: web
+    name: altcredit-backend
+    runtime: python
+    plan: free
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.13"
+      - key: SECRET_KEY
+        generateValue: true
+      - key: BANK_API_URL
+        fromService:
+          type: web
+          name: altcredit-bank-mock
+          envVarKey: RENDER_EXTERNAL_URL
+      - key: BANK_API_KEY
+        fromService:
+          type: web
+          name: altcredit-bank-mock
+          envVarKey: BANK_API_KEY
+      - key: CORS_ORIGINS
+        value: "*"
+
+  - type: web
+    name: altcredit-frontend
+    runtime: static
+    plan: free
+    rootDir: frontend
+    buildCommand: npm install && npm run build
+    staticPublishPath: dist
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    envVars:
+      - key: VITE_API_URL
+        fromService:
+          type: web
+          name: altcredit-backend
+          envVarKey: RENDER_EXTERNAL_URL

@@ -1,4 +1,5 @@
-const BASE = '/api/v1'
+const API_URL = (import.meta.env.VITE_API_URL || '').replace(/\/+$/, '')
+const BASE = `${API_URL}/api/v1`
 const KEY = 'altcredit.session'
 
 export const session = {
@@ -33,7 +34,7 @@ async function request(path, { method = 'GET', body, form, raw, params } = {}) {
   try {
     res = await fetch(BASE + path + qs, { method, headers, body: form || (body ? JSON.stringify(body) : undefined) })
   } catch {
-    throw new ApiError(0, 'Cannot reach the ALTcredit API. Is the backend running on port 8000?')
+    throw new ApiError(0, 'Cannot reach the ALTcredit API. Please check your network connection or verify that the backend is running.')
   }
   if (!res.ok) {
     let d

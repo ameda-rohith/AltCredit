@@ -10,13 +10,28 @@ class Base(DeclarativeBase):
     pass
 
 
+db_url = settings.database_url
+if db_url.startswith("postgres://"):
+    db_url = db_url.replace("postgres://", "postgresql://", 1)
+
+if db_url.startswith("sqlite:///"):
+    db_file_path = db_url.replace("sqlite:///", "")
+    if db_file_path and db_file_path != ":memory:":
+        from pathlib import Path
+
+        db_path = Path(db_file_path)
+        try:
+            db_path.parent.mkdir(parents=True, exist_ok=True)
+        except Exception:
+            pass
+
 _kwargs = (
     {"connect_args": {"check_same_thread": False}}
-    if settings.database_url.startswith("sqlite")
+    if db_url.startswith("sqlite")
     else {}
 )
-engine = create_engine(settings.database_url, **_kwargs)
-if settings.database_url.startswith("sqlite"):
+engine = create_engine(db_url, **_kwargs)
+if db_url.startswith("sqlite"):
 
     @event.listens_for(engine, "connect")
     def _enforce_foreign_keys(dbapi_connection, _record):
